@@ -1,20 +1,10 @@
-@font-face {
-    font-family: sourcecodepro;
-    src: url(../fonts/sourcecodepro.ttf);
-}
-
-@font-face {
-    font-family: sourceserifpro;
-    src: url(../fonts/sourceserifpro.ttf);
-}
-
 body {
     background-image: url(../images/background_blur.jpg);
     background-size: cover;
     background-repeat: no-repeat;
     background-attachment: fixed;
     color: #eeeeec;
-    font-family: sourcecodepro,monospace,sans-serif;
+    font-family: "Source Code Pro",monospace,sans-serif;
 }
 
 .terminal {
@@ -38,7 +28,7 @@ h1 {
     color: #6c99bb;
     text-align: center;
     padding-bottom: 10px;
-    font-family: sourceserifpro,serif;
+    font-family: "Source Serif Pro",serif;
     font-size: 3.2em;
 }
 
