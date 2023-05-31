@@ -1,0 +1,95 @@
+body {
+    color: #eeeeec;
+    /* font-family: "Source Code Pro",monospace,sans-serif; */
+    font-family: 'Source Sans Pro',sans-serif;
+    font-size: 1.1em;
+    margin: 0;
+    padding: 0;
+}
+
+.background {
+    background-image: url(images/background.jpg);
+    background-position: bottom;
+    background-repeat: no-repeat;
+    background-size: cover;
+    position: fixed;
+    height: 100vh;
+    width: 100%;
+}
+
+.blur {
+    backdrop-filter: blur(20px);
+    height: 100vh;
+    width: 100%;
+}
+
+.terminal {
+    background: #353535;
+    text-align: left;
+    min-width: 600px;
+    max-width: 1200px;
+    width: 60%;
+    position: absolute;
+    opacity: 80%;
+    top: 0;
+    left: 50%;
+    transform: translate(-50%, 0%);
+    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+    padding-top: 20px;
+    padding-bottom: 20px;
+}
+
+.rendered {
+    margin-left: 20px;
+    margin-right: 20px;
+}
+
+h1, h2, h3 {
+    text-shadow: #000000 0px 1px;
+}
+
+p {
+    overflow: hidden;
+    padding: 0;
+    margin: 0;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    font-size: 1em;
+}
+
+.command {
+    margin-top: 20px;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid #5b5b5b;
+}
+
+a {
+    color: #d197d9;
+}
+
+img {
+    max-width: 80%;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+table {
+    width: 100%;
+    border: 1px solid;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 5px;
+    border: 1px solid;
+}
+
+code {
+    font-size: 0.9em;
+    /* line-height: 1.2em; */
+    font-family: "Source Code Pro",monospace,sans-serif;
+}
