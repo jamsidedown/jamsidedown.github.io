@@ -23,10 +23,10 @@ body {
 .terminal {
     background: #353535;
     text-align: left;
-    padding: 20px;
-    margin: 12px;
-    width: 640px;
-    height: 480px;
+    width: 100%;
+    height: auto;
+    max-width: 640px;
+    min-height: 480px;
     border-radius: 10px;
     position: absolute;
     opacity: 80%;
@@ -34,6 +34,11 @@ body {
     left: 50%;
     transform: translate(-50%, -50%);
     box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+}
+
+.terminal-text {
+    padding: 20px;
+    margin: 12px;
 }
 
 h1 {
