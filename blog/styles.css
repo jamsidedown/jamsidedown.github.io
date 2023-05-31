@@ -1,6 +1,5 @@
 body {
     color: #eeeeec;
-    /* font-family: "Source Code Pro",monospace,sans-serif; */
     font-family: 'Source Sans Pro',sans-serif;
     font-size: 1.1em;
     margin: 0;
@@ -26,9 +25,8 @@ body {
 .terminal {
     background: #353535;
     text-align: left;
-    min-width: 600px;
-    max-width: 1200px;
-    width: 60%;
+    max-width: 1000px;
+    width: 100%;
     position: absolute;
     opacity: 80%;
     top: 0;
@@ -45,20 +43,14 @@ body {
 }
 
 h1, h2, h3 {
-    text-shadow: #000000 0px 1px;
+    text-shadow: #000000 0 1px;
 }
 
 p {
     overflow: hidden;
     padding: 0;
-    margin: 0;
-    margin-top: 10px;
-    margin-bottom: 10px;
+    margin: 10px 0;
     font-size: 1em;
-}
-
-.command {
-    margin-top: 20px;
 }
 
 hr {
@@ -90,6 +82,5 @@ th, td {
 
 code {
     font-size: 0.9em;
-    /* line-height: 1.2em; */
-    font-family: "Source Code Pro",monospace,sans-serif;
+    font-family: 'Source Code Pro',monospace,sans-serif;
 }
