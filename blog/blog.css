@@ -89,3 +89,12 @@ code {
     font-size: 0.9em;
     font-family: 'Source Code Pro',monospace,sans-serif;
 }
+
+.post {
+    margin: 20px;
+}
+
+a.home {
+    color: #6c99bb;
+    text-decoration: none;
+}
