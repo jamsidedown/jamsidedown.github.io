@@ -7,7 +7,7 @@ body {
 }
 
 .background {
-    background-image: url(../images/background_blur.jpg);
+    background-image: url(https://robanderson.dev/images/background_blur.jpg);
     background-position: bottom;
     background-repeat: no-repeat;
     background-size: cover;
@@ -35,6 +35,11 @@ body {
     box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
     padding-top: 20px;
     padding-bottom: 20px;
+}
+
+.centre {
+    width: 100%;
+    text-align: center;
 }
 
 .rendered {

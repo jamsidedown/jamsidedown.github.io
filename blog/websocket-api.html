@@ -6,30 +6,31 @@
 
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
-        <link rel="icon" type="image/x-icon" href="https://robanderson.dev/images/favicon.png">
-
-        <link rel="stylesheet" href="https://robanderson.dev/css/blog.css">
+        <link rel="stylesheet" href="blog.css">
         <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Code+Pro&display=swap">
         <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro&display=swap">
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/base16/espresso.min.css">
 
         <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
         <script>
-            document.addEventListener('DOMContentLoaded', event => {
-                document.querySelectorAll('code') .forEach(el => hljs.highlightElement(el));
+            document.addEventListener('DOMContentLoaded', (event) => {
+                document.querySelectorAll('code').forEach((el) => {
+                    hljs.highlightElement(el);
+                });
             });
         </script>
     </head>
     <body>
         <div class="background">
-            <!-- <div class="blur"></div> -->
+            <div class="blur"></div>
         </div> 
         <main>
             <div class="terminal">
                 <div class="rendered">
-                    <h1 id="creating-a-simple-websocket-api-on-aws-with-c">Creating a simple websocket API on AWS with C#</h1>
-<hr />
-<p><strong>TL;DR deploy instructions <a href="#using-the-template">here</a></strong></p>
+                    <h1>Creating a simple websocket API on AWS with C#</h1>
+                    <div class="centre">2023-05-31</div>
+                    <hr />
+                    <p><strong>TL;DR deploy instructions <a href="#using-the-template">here</a></strong></p>
 <h2 id="goals">Goals</h2>
 <p>When creating and deploying serverless websocket APIs on AWS in the past, there have been a series of pain points that I have been collecting solutions for.</p>
 <p>I've created a <a href="https://github.com/jamsidedown/AwsWebsocketDotnetTemplate">GitHub template repository</a> to try to make setting up a new websocket API on AWS as easy as possible. This article serves as a companion to the repo to explain why I've done the things I've done.</p>
