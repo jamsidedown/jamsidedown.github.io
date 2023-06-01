@@ -15,12 +15,6 @@ body {
     width: 100%;
 }
 
-.blur {
-    backdrop-filter: blur(20px);
-    height: 100vh;
-    width: 100%;
-}
-
 .terminal {
     background: #353535;
     text-align: left;
