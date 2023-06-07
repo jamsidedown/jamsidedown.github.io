@@ -82,6 +82,7 @@ th, td {
 code {
     font-size: 0.9em;
     font-family: 'Source Code Pro',monospace,sans-serif;
+    font-style: normal;
 }
 
 .post {
@@ -91,4 +92,10 @@ code {
 a.home {
     color: #6c99bb;
     text-decoration: none;
+}
+
+blockquote {
+    font-style: italic;
+    border-left: 2px solid #eeeeec;
+    padding-left: 10px;
 }
