@@ -2,9 +2,10 @@
 <html lang="en">
     <head>
         <meta charset="utf-8">
-        <title>CloudFront URL transform</title>
+        <title>Converting path parameters to query string parameters for websocket APIs</title>
 
         <meta name="viewport" content="width=device-width, initial-scale=1">
+                <meta name="description" content="Using CloudFront to transform path parameters to query strings in a websocket URL for API Gateway">
 
         <link rel="icon" href="https://robanderson.dev/images/favicon.png">
 
@@ -29,12 +30,11 @@
                 <div class="rendered">
                     <a class="home" href="./">Home</a>
                     <div class="centre">
-                        <h1>CloudFront URL transform</h1>
+                        <h1>Converting path parameters to query string parameters for websocket APIs</h1>
                             <span>2023-06-09</span>
                     </div>
                     <hr />
-                    <h2 id="converting-path-parameters-to-query-string-parameters-for-websocket-apis">Converting path parameters to query string parameters for websocket APIs</h2>
-<p><strong>TL;DR</strong></p>
+                    <p><strong>TL;DR</strong></p>
 <p><strong>Deploy instructions <a href="#using-the-template">here</a></strong></p>
 <p><strong>Full yaml template <a href="#full-template">here</a></strong></p>
 <h2 id="why">Why</h2>
@@ -42,6 +42,7 @@
 <p>On one project, the team I was on was building a Websocket API on AWS that had to adhere to an existing standard; we were given a contract that we had to build to that included the user's auth token as a path parameter on the end of the URL which was fine for the existing legacy solution we were replacing, but presented an issue with our new serverless solution.</p>
 <p>Eventually, I was pointed towards CloudFront functions by a friend, and I spent the next weekend hacking to create a workaround for our issue.</p>
 <h2 id="solution">Solution</h2>
+<p><img src="images/cloudfront-url-transform.drawio.png" alt="architecture diagram" /></p>
 <p>The solution I worked on involved creating a CloudFront distribution that the user connected to, with a CloudFront function to take any path parameters and convert them to query string parameters for API Gateway to handle.</p>
 <pre><code class="language-plaintext">wss://abcdefghijklmn.cloudfront.net/one/two/three
 ↓
@@ -169,7 +170,7 @@ Stage:
 <p>I've defined a simple websocket API, with a <code>Prod</code> stage that deploys every time the API changes.</p>
 <p>I discovered the <code>AutoDeploy</code> option for the stage very recently, and it makes the template a lot simpler than manually defining deployments. I've had a number of issues with routes not being added or updated until API Gateway is manually deployed in the past.</p>
 <h2 id="lambda">Lambda</h2>
-<p>Initially I hadn't implemented any routes for API Gateway, but found that I was unable to deploy without at least one route complete.</p>
+<p>Initially I hadn't implemented any routes for API Gateway, but found that I was unable to deploy without at least one route complete. This also made it easier to verify my CloudFront Function was working correctly, as Lambda produced logs that can be checked in CloudWatch.</p>
 <pre><code class="language-yaml">ConnectFunction:
   Type: &quot;AWS::Serverless::Function&quot;
   Properties:
