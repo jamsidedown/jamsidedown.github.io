@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>CloudFront URL transform</title>
+
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <link rel="icon" href="https://robanderson.dev/images/favicon.png">
+
+        <link rel="stylesheet" href="blog.css">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Code+Pro&display=swap">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro&display=swap">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/base16/espresso.min.css">
+
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', (event) => {
+                document.querySelectorAll('code').forEach((el) => {
+                    hljs.highlightElement(el);
+                });
+            });
+        </script>
+    </head>
+    <body>
+        <div class="background"></div> 
+        <main>
+            <div class="terminal">
+                <div class="rendered">
+                    <a class="home" href="./">Home</a>
+                    <div class="centre">
+                        <h1>CloudFront URL transform</h1>
+                            <span>2023-06-09</span>
+                    </div>
+                    <hr />
+                    <h2 id="converting-path-parameters-to-query-string-parameters-for-websocket-apis">Converting path parameters to query string parameters for websocket APIs</h2>
+<p><strong>TL;DR</strong></p>
+<p><strong>Deploy instructions <a href="#using-the-template">here</a></strong></p>
+<p><strong>Full yaml template <a href="#full-template">here</a></strong></p>
+<h2 id="why">Why</h2>
+<p>API Gateway websocket APIs don't support path parameters after the stage. The simple solution would be to avoid using path parameters, but sensible decisions like that aren't always an option.</p>
+<p>On one project, the team I was on was building a Websocket API on AWS that had to adhere to an existing standard; we were given a contract that we had to build to that included the user's auth token as a path parameter on the end of the URL which was fine for the existing legacy solution we were replacing, but presented an issue with our new serverless solution.</p>
+<p>Eventually, I was pointed towards CloudFront functions by a friend, and I spent the next weekend hacking to create a workaround for our issue.</p>
+<h2 id="solution">Solution</h2>
+<p>The solution I worked on involved creating a CloudFront distribution that the user connected to, with a CloudFront function to take any path parameters and convert them to query string parameters for API Gateway to handle.</p>
+<pre><code class="language-plaintext">wss://abcdefghijklmn.cloudfront.net/one/two/three
+↓
+wss://abcdefghij.execute-api.eu-west-2.amazonaws.com/Prod?path=one&amp;path=two&amp;path=three
+</code></pre>
+<p>The event received in the Connect Lambda will look like the following json</p>
+<pre><code class="language-json">{
+    &quot;headers&quot;: { ... },
+    &quot;isBase64Encoded&quot;: false,
+    &quot;multiValueHeaders&quot;: { ... },
+    &quot;multiValueQueryStringParameters&quot;: {
+        &quot;path&quot;: [
+            &quot;one&quot;,
+            &quot;two&quot;,
+            &quot;three&quot;
+        ]
+    },
+    &quot;queryStringParameters&quot;: {
+        &quot;path&quot;: &quot;three&quot;
+    },
+    &quot;requestContext&quot;: { ... }
+}
+</code></pre>
+<h2 id="using-the-template">Using the template</h2>
+<h3 id="requirements">Requirements</h3>
+<p>TODO: Write a section on how to deploy the template to AWS</p>
+<ul>
+<li>AWS Account</li>
+<li>AWS CLI (<a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html">Installer</a>) (<a href="https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html">Setup</a>)</li>
+<li>AWS SAM CLI (<a href="https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html">Installer</a>)</li>
+</ul>
+<h4 id="optional-tools">Optional tools</h4>
+<ul>
+<li>wscat (<a href="https://github.com/websockets/wscat#installation">Install instructions</a>) (for testing)</li>
+<li>cfn-lint (<a href="https://github.com/aws-cloudformation/cfn-lint#install">Install instructions</a>) (for template validation)</li>
+</ul>
+<pre><code class="language-sh">$ aws --version
+aws-cli/2.11.20 Python/3.11.3 Darwin/22.5.0 exe/x86_64 prompt/off
+
+$ sam --version
+SAM CLI, version 1.84.0
+
+$ wscat --version
+5.2.0
+
+$ cfn-lint --version
+cfn-lint 0.77.5
+</code></pre>
+<h3 id="build-and-deploy">Build and deploy</h3>
+<p>Copy the <a href="#full-template">full template</a> from the bottom of this article, or copy the yaml from <a href="https://gist.github.com/jamsidedown/f813d82342a13fcbab5ef89d7ce29e24">the Github Gist</a>.</p>
+<p>Save the contents into a <code>template.yaml</code> file in whichever directory you want to use as a project directory. This template should serve as a good starting point for any serverless websocket solution with AWS.</p>
+<p>The template can be checked for errors with <code>cfn-lint</code>.</p>
+<pre><code class="language-sh">$ cfn-lint template.yaml
+</code></pre>
+<p>Now the template can be built, and deployed to AWS. For the first run, the <code>sam deploy</code> command will need to be quite verbose, but for subsequent deploys the process is a lot simpler.</p>
+<pre><code class="language-sh">sam build
+
+# the stack name can be replaced with whatever you want
+sam deploy --stack-name MyWebsocketApi --capabilities CAPABILITY_NAMED_IAM --guided
+
+# I left all values as default, and saved the output to samconfig.toml
+# this makes subsequent deploys much easier
+</code></pre>
+<pre><code class="language-sh"># for future deploys
+sam build &amp;&amp; sam deploy
+</code></pre>
+<p>Assuming the build and deploy succeed, you should see some output with the API Gateway and CloudFront urls</p>
+<pre><code class="language-sh">sam build &amp;&amp; sam deploy
+
+...
+
+CloudFormation outputs from deployed stack
+--------------------------------------------------------------------------------------------------------------------------
+Outputs                                                                                                                  
+--------------------------------------------------------------------------------------------------------------------------
+Key                 CloudFrontUrl                                                                                        
+Description         Cloudfront URL                                                                                       
+Value               wss://abcdefghijklmn.cloudfront.net                                                                  
+
+Key                 ServerApi                                                                                            
+Description         Api Gateway endpoint URL                                                                             
+Value               wss://abcdefghij.execute-api.eu-west-2.amazonaws.com/Prod                                            
+--------------------------------------------------------------------------------------------------------------------------
+
+
+Successfully created/updated stack - TestCloudFront in eu-west-2
+</code></pre>
+<p>Now the endpoint can be tested with <code>wscat</code></p>
+<pre><code class="language-sh">$ wscat -c wss://abcdefghijklmn.cloudfront.net/one/two/three
+Connected (press CTRL+C to quit)
+&gt;
+</code></pre>
+<p>After checking the log group for the Connect Lambda, I can see the query strings that the CloudFront Function have transformed.</p>
+<pre><code class="language-json">{
+    &quot;headers&quot;: { ... },
+    &quot;isBase64Encoded&quot;: false,
+    &quot;multiValueHeaders&quot;: { ... },
+    &quot;multiValueQueryStringParameters&quot;: {
+        &quot;path&quot;: [
+            &quot;one&quot;,
+            &quot;two&quot;,
+            &quot;three&quot;
+        ]
+    },
+    &quot;queryStringParameters&quot;: {
+        &quot;path&quot;: &quot;three&quot;
+    },
+    &quot;requestContext&quot;: { ... }
+}
+</code></pre>
+<h2 id="api-gateway">API Gateway</h2>
+<pre><code class="language-yaml">ApiGateway:
+  Type: &quot;AWS::ApiGatewayV2::Api&quot;
+  Properties:
+    Name: !Sub &quot;${AWS::StackName}-wss-api&quot;
+    ProtocolType: &quot;WEBSOCKET&quot;
+    RouteSelectionExpression: &quot;\\$default&quot;
+
+Stage:
+  Type: &quot;AWS::ApiGatewayV2::Stage&quot;
+  Properties:
+    StageName: &quot;Prod&quot;
+    AutoDeploy: true
+    ApiId: !Ref &quot;ApiGateway&quot;
+</code></pre>
+<p>I've defined a simple websocket API, with a <code>Prod</code> stage that deploys every time the API changes.</p>
+<p>I discovered the <code>AutoDeploy</code> option for the stage very recently, and it makes the template a lot simpler than manually defining deployments. I've had a number of issues with routes not being added or updated until API Gateway is manually deployed in the past.</p>
+<h2 id="lambda">Lambda</h2>
+<p>Initially I hadn't implemented any routes for API Gateway, but found that I was unable to deploy without at least one route complete.</p>
+<pre><code class="language-yaml">ConnectFunction:
+  Type: &quot;AWS::Serverless::Function&quot;
+  Properties:
+    Runtime: &quot;python3.10&quot;
+    Timeout: 30
+    Architectures:
+      - &quot;arm64&quot;
+    MemorySize: 256
+    Role: !GetAtt &quot;LambdaRole.Arn&quot;
+    Handler: &quot;index.handler&quot;
+    InlineCode: |
+      def handler(event, context):
+        print(event)
+        return {'statusCode': 200}
+</code></pre>
+<p>I've added a connect lambda with some inline code that logs the received event, then returns a success status code so that the user can connect to the websocket API. I've used Python because I like Python, it runs quickly with very little memory, and it's <a href="https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-code.html#cfn-lambda-function-code-zipfile">one of the runtimes</a> that supports <code>InlineCode</code>.</p>
+<p>There are also entries in the full template at the bottom of the post to give the lambda permissions to write logs to CloudWatch, and permissions to allow API Gateway to invoke the lambda. I've defined the CloudWatch log group in the CloudFormation template too, so that it gets cleared down with the rest of the stack if/when the stack is deleted. (No one wants to discover hundreds of development log groups left behind).</p>
+<p>The route and the integration are required to hook the Lambda up to API Gateway.</p>
+<h2 id="cloudwatch">CloudWatch</h2>
+<p>CloudWatch accounts for the majority of the complexity in this post, it's a bit of a large lump of <code>yaml</code> - apologies.</p>
+<p><a href="https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-function.html">Documentation for CloudFront Functions</a> is a lot better than it used to be.</p>
+<pre><code class="language-yaml">CloudFrontDist:
+  Type: &quot;AWS::CloudFront::Distribution&quot;
+  Properties:
+    DistributionConfig:
+      Origins:
+        - Id: !Sub &quot;${AWS::StackName}-cloudfront-origin&quot;
+          DomainName: !Sub &quot;${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com&quot;
+          OriginPath: !Sub &quot;/${Stage}&quot;
+          CustomOriginConfig:
+            HTTPSPort: 443
+            OriginProtocolPolicy: &quot;https-only&quot;
+      DefaultCacheBehavior:
+        ViewerProtocolPolicy: &quot;https-only&quot;
+        TargetOriginId: !Sub &quot;${AWS::StackName}-cloudfront-origin&quot; # must be the same as the origin defined above
+        CachePolicyId: &quot;4135ea2d-6df8-44a3-9df3-4b5a84be39ad&quot; # Managed-CachingDisabled
+        OriginRequestPolicyId: !Ref &quot;CloudFrontOriginRequestPolicy&quot;
+        FunctionAssociations:
+          - EventType: &quot;viewer-request&quot;
+            FunctionARN: !GetAtt &quot;CloudFrontFunction.FunctionMetadata.FunctionARN&quot;
+      Enabled: true
+      IPV6Enabled: false
+
+CloudFrontOriginRequestPolicy:
+  Type: &quot;AWS::CloudFront::OriginRequestPolicy&quot;
+  Properties:
+    OriginRequestPolicyConfig:
+      Name: !Sub &quot;${AWS::StackName}-cloudfront-orp&quot;
+      HeadersConfig:
+        HeaderBehavior: &quot;whitelist&quot;
+        Headers:
+          - &quot;Sec-WebSocket-Key&quot;
+          - &quot;Sec-WebSocket-Version&quot;
+          - &quot;Sec-WebSocket-Protocol&quot;
+          - &quot;Sec-WebSocket-Accept&quot;
+      QueryStringsConfig:
+        QueryStringBehavior: &quot;all&quot;
+      CookiesConfig:
+        CookieBehavior: &quot;none&quot;
+
+CloudFrontFunction:
+  Type: &quot;AWS::CloudFront::Function&quot;
+  Properties:
+    Name: !Sub &quot;${AWS::StackName}-cloudfront-function&quot;
+    AutoPublish: true
+    FunctionCode: |
+      function handler(event) {
+        var request = event.request;
+        var re = /^(.*?\/)([^.]+)$/;
+        var match = re.exec(request.uri);
+        if (match) {
+          request.uri = match[1];
+          request.querystring.path = {
+              'multiValue': match[2].split('/').map(p =&gt; { return {'value': p} })
+          };
+        }
+        return request;
+      }
+    FunctionConfig:
+      Comment: &quot;Change path parameters to query string&quot;
+      Runtime: &quot;cloudfront-js-1.0&quot;
+</code></pre>
+<p>API Gateway is setup as the sole origin for CloudFront, all traffic must be over HTTPS (which WSS is built on top of), and caching has been disabled through the cryptic looking <code>DefaultCacheBehaviour</code>. You can read the <a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/using-managed-cache-policies.html">documentation for the caching</a> to see where <code>4135ea2d-6df8-44a3-9df3-4b5a84be39ad</code> came from.</p>
+<p>When a user initially tries to connect to CloudFront, the <code>CloudFrontFunction</code> will execute to modify the request.</p>
+<p>The <code>OriginRequestPolicy</code> restricts connections to websockets only, and from memory does very little else.</p>
+<p>The <code>CloudFrontFunction</code> is the star of the show here, and was also the part that took the longest to get right.
+There is an editor in the AWS Console that allows you modify and test your function, but if any part of your test parameters are incorrect it can be very difficult to work out why the function works in testing but not live.</p>
+<p>The part that initially caught me out was that the <code>event.request.uri</code> doesn't include the CloudFront URL, so if the user visits <code>wss://abcdefghijklmn.cloudfront.net/one/two/three</code> the <code>uri</code> will be <code>/one/two/three</code>. The inline function above will then set the <code>uri</code> to <code>/</code>, and move the path parameters into query string parameters.</p>
+<p>Currently, the only way to programatically deploy a CloudWatch Function is to include the javascript code in the template like this. I'd prefer to be able to work with Python, but it's been about 18 months since I first worked on this, and <code>cloudfront-js-1.0</code> is still the only available runtime. <a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/functions-javascript-runtime-features.html">cloudfront-js-1.0</a> is fully compliant with ES 5.1, with a few extras tacked on by AWS.</p>
+<p>There is now <a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/functions-event-structure.html#functions-event-structure-query-header-cookie">decent documentation for the event structure</a> in CloudFront Functions, and a <a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/writing-function-code.html">basic guide to writing CloudFront Functions</a>. Both are helpful, but feel like they're missing some details around multi-value query strings.</p>
+<p>As a warning, CloudFront functions seem to take a few minutes to deploy every time they're changed, so I'd recommend trying to keep changes to a minimum.</p>
+<h2 id="full-template">Full template</h2>
+<p><strong>Also avaiable <a href="https://gist.github.com/jamsidedown/f813d82342a13fcbab5ef89d7ce29e24">from this Github gist</a></strong></p>
+<pre><code class="language-yaml">AWSTemplateFormatVersion: &quot;2010-09-09&quot;
+Transform: &quot;AWS::Serverless-2016-10-31&quot;
+
+Resources:
+  ApiGateway:
+    Type: &quot;AWS::ApiGatewayV2::Api&quot;
+    Properties:
+      Name: !Sub &quot;${AWS::StackName}-wss-api&quot;
+      ProtocolType: &quot;WEBSOCKET&quot;
+      RouteSelectionExpression: &quot;\\$default&quot;
+
+  Stage:
+    Type: &quot;AWS::ApiGatewayV2::Stage&quot;
+    Properties:
+      StageName: &quot;Prod&quot;
+      AutoDeploy: true
+      ApiId: !Ref &quot;ApiGateway&quot;
+
+  LambdaRole:
+    Type: &quot;AWS::IAM::Role&quot;
+    Properties:
+      RoleName: !Sub &quot;${AWS::StackName}-lambda-role&quot;
+      AssumeRolePolicyDocument:
+        Version: &quot;2012-10-17&quot;
+        Statement:
+          - Effect: &quot;Allow&quot;
+            Principal:
+              Service:
+                - &quot;lambda.amazonaws.com&quot;
+            Action:
+              - &quot;sts:AssumeRole&quot;
+
+  LambdaPolicy:
+    Type: &quot;AWS::IAM::Policy&quot;
+    Properties:
+      PolicyName: !Sub &quot;${AWS::StackName}-lambda-policy&quot;
+      PolicyDocument:
+        Version: &quot;2012-10-17&quot;
+        Statement:
+          - Effect: &quot;Allow&quot;
+            Action:
+              - &quot;logs:CreateLogGroup&quot;
+              - &quot;logs:CreateLogStream&quot;
+              - &quot;logs:PutLogEvents&quot;
+            Resource: &quot;*&quot;
+      Roles:
+        - !Ref &quot;LambdaRole&quot;
+
+  ConnectFunction:
+    Type: &quot;AWS::Serverless::Function&quot;
+    Properties:
+      Runtime: &quot;python3.10&quot;
+      Timeout: 30
+      Architectures:
+        - &quot;arm64&quot;
+      MemorySize: 256
+      Role: !GetAtt &quot;LambdaRole.Arn&quot;
+      Handler: &quot;index.handler&quot;
+      InlineCode: |
+        def handler(event, context):
+          print(event)
+          return {'statusCode': 200}
+
+  ConnectFunctionLogGroup:
+    Type: &quot;AWS::Logs::LogGroup&quot;
+    Properties:
+      LogGroupName: !Sub &quot;/aws/lambda/${ConnectFunction}&quot;
+      RetentionInDays: 30
+
+  ConnectInvokePermission:
+    Type: &quot;AWS::Lambda::Permission&quot;
+    DependsOn:
+      - &quot;ApiGateway&quot;
+    Properties:
+      Action: &quot;lambda:InvokeFunction&quot;
+      FunctionName: !Ref &quot;ConnectFunction&quot;
+      Principal: &quot;apigateway.amazonaws.com&quot;
+
+  ConnectRoute:
+    Type: &quot;AWS::ApiGatewayV2::Route&quot;
+    Properties:
+      ApiId: !Ref &quot;ApiGateway&quot;
+      RouteKey: &quot;$connect&quot;
+      OperationName: &quot;ConnectRoute&quot;
+      Target: !Sub &quot;integrations/${ConnectIntegration}&quot;
+
+  ConnectIntegration:
+    Type: &quot;AWS::ApiGatewayV2::Integration&quot;
+    Properties:
+      ApiId: !Ref &quot;ApiGateway&quot;
+      IntegrationType: &quot;AWS_PROXY&quot;
+      IntegrationUri: !Sub &quot;arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ConnectFunction.Arn}/invocations&quot;
+
+  CloudFrontDist:
+    Type: &quot;AWS::CloudFront::Distribution&quot;
+    Properties:
+      DistributionConfig:
+        Origins:
+          - Id: !Sub &quot;${AWS::StackName}-cloudfront-origin&quot;
+            DomainName: !Sub &quot;${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com&quot;
+            OriginPath: !Sub &quot;/${Stage}&quot;
+            CustomOriginConfig:
+              HTTPSPort: 443
+              OriginProtocolPolicy: &quot;https-only&quot;
+        DefaultCacheBehavior:
+          ViewerProtocolPolicy: &quot;https-only&quot;
+          TargetOriginId: !Sub &quot;${AWS::StackName}-cloudfront-origin&quot; # must be the same as the origin defined above
+          CachePolicyId: &quot;4135ea2d-6df8-44a3-9df3-4b5a84be39ad&quot; # Managed-CachingDisabled
+          OriginRequestPolicyId: !Ref &quot;CloudFrontOriginRequestPolicy&quot;
+          FunctionAssociations:
+            - EventType: &quot;viewer-request&quot;
+              FunctionARN: !GetAtt &quot;CloudFrontFunction.FunctionMetadata.FunctionARN&quot;
+        Enabled: true
+        IPV6Enabled: false
+
+  CloudFrontOriginRequestPolicy:
+    Type: &quot;AWS::CloudFront::OriginRequestPolicy&quot;
+    Properties:
+      OriginRequestPolicyConfig:
+        Name: !Sub &quot;${AWS::StackName}-cloudfront-orp&quot;
+        HeadersConfig:
+          HeaderBehavior: &quot;whitelist&quot;
+          Headers:
+            - &quot;Sec-WebSocket-Key&quot;
+            - &quot;Sec-WebSocket-Version&quot;
+            - &quot;Sec-WebSocket-Protocol&quot;
+            - &quot;Sec-WebSocket-Accept&quot;
+        QueryStringsConfig:
+          QueryStringBehavior: &quot;all&quot;
+        CookiesConfig:
+          CookieBehavior: &quot;none&quot;
+
+  CloudFrontFunction:
+    Type: &quot;AWS::CloudFront::Function&quot;
+    Properties:
+      Name: !Sub &quot;${AWS::StackName}-cloudfront-function&quot;
+      AutoPublish: true
+      FunctionCode: |
+        function handler(event) {
+          var request = event.request;
+
+          var re = /^(.*?\/)([^.]+)$/;
+          var match = re.exec(request.uri);
+
+          if (match) {
+            request.uri = match[1];
+
+            request.querystring.path = {
+                'multiValue': match[2].split('/').map(p =&gt; { return {'value': p} })
+            };
+          }
+
+          return request;
+        }
+      FunctionConfig:
+        Comment: &quot;Change path parameters to query string&quot;
+        Runtime: &quot;cloudfront-js-1.0&quot;
+
+Outputs:
+  ServerApi:
+    Description: &quot;Api Gateway endpoint URL&quot;
+    Value: !Sub &quot;${ApiGateway.ApiEndpoint}/${Stage}&quot;
+  CloudFrontUrl:
+    Description: &quot;Cloudfront URL&quot;
+    Value: !Sub &quot;wss://${CloudFrontDist.DomainName}&quot;
+</code></pre>
+<h2 id="summary">Summary</h2>
+<p>Thanks for taking the time to read this, hopefully it'll serve as some sort of documentation for this slightly convoluted workaround to this issue with API Gateway.</p>
+
+                </div>
+            </div>
+        </main>
+    </body>
+</html>
