@@ -38,8 +38,9 @@
 <p><strong>Deploy instructions <a href="#using-the-template">here</a></strong></p>
 <p><strong>Full yaml template <a href="#full-template">here</a></strong></p>
 <h2 id="why">Why</h2>
-<p>API Gateway websocket APIs don't support path parameters after the stage. The simple solution would be to avoid using path parameters, but sensible decisions like that aren't always an option.</p>
-<p>On one project, the team I was on was building a Websocket API on AWS that had to adhere to an existing standard; we were given a contract that we had to build to that included the user's auth token as a path parameter on the end of the URL which was fine for the existing legacy solution we were replacing, but presented an issue with our new serverless solution.</p>
+<p>API Gateway websocket APIs don't support path parameters after the stage in their URL.  The simple solution would be to avoid using path parameters, but sensible decisions like that aren't always an option.</p>
+<p>URLs like <code>wss://abcdefghij.execute-api.eu-west-2.amazonaws.com/Prod/hello</code> will result in a 403 Forbidden status code when connecting with a tool like <code>wscat</code>. The stage in this case is <code>Prod</code>, and I've added a path parameter <code>hello</code>.</p>
+<p>On one project, the team I was on was building a Websocket API on AWS that had to adhere to an existing standard; we were given an API contract that we had to build to that included the user's auth token as a path parameter on the end of the URL. This was fine for the existing legacy solution we were replacing, but presented an issue with our new serverless solution.</p>
 <p>Eventually, I was pointed towards CloudFront functions by a friend, and I spent the next weekend hacking to create a workaround for our issue.</p>
 <h2 id="solution">Solution</h2>
 <p><img src="images/cloudfront-url-transform.drawio.png" alt="architecture diagram" /></p>
@@ -127,7 +128,7 @@ Value               wss://abcdefghij.execute-api.eu-west-2.amazonaws.com/Prod
 --------------------------------------------------------------------------------------------------------------------------
 
 
-Successfully created/updated stack - TestCloudFront in eu-west-2
+Successfully created/updated stack - MyWebsocketApi in eu-west-2
 </code></pre>
 <p>Now the endpoint can be tested with <code>wscat</code></p>
 <pre><code class="language-sh">$ wscat -c wss://abcdefghijklmn.cloudfront.net/one/two/three
