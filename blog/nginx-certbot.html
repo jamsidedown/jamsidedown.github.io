@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>Using NGINX and Certbot to host an Express server</title>
+
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+                <meta name="description" content="Using NGINX and Certbot to host an Express server on ports 8080 and 8443">
+
+        <link rel="icon" href="https://robanderson.dev/images/favicon.png">
+
+        <link rel="stylesheet" href="css/blog.css">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Code+Pro&display=swap">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro&display=swap">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/base16/espresso.min.css">
+
+        <script src="js/highlight.min.js"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', (event) => {
+                document.querySelectorAll('code').forEach((el) => {
+                    hljs.highlightElement(el);
+                });
+            });
+        </script>
+    </head>
+    <body>
+        <div class="background"></div> 
+        <main>
+            <div class="terminal">
+                <div class="rendered">
+                    <a class="home" href="./">Home</a>
+                    <div class="centre">
+                        <h1>Using NGINX and Certbot to host an Express server</h1>
+                            <span>2023-07-20</span>
+                    </div>
+                    <hr />
+                    <h2 id="background-rambling">Background rambling</h2>
+<p>I have recently started building a website with my partner as an opportunity for them to improve their coding ability, and to put into practice the concepts they've been learning about in the programming courses they've been taking on Codecademy and Udemy.</p>
+<h3 id="express">Express</h3>
+<p>Because my partner had primarily been learning Javascript and was reasonably new to software development, I thought that building a monolithic web app running on Node.js would be the most sensible solution; this would help them reinforce their Javascript learning, and keep the architecture as simple as possible.</p>
+<p>I decided on <a href="https://expressjs.com/">Express</a> with <a href="https://handlebarsjs.com/">Handlebars</a>.</p>
+<p>I've used Express with a client at work in the past, and found it to be pretty simple to get up and running. I had only used Express to build backend restful(ish) and async websocket apis so using it for a full website would be a nice learning opportunity for me too.</p>
+<p>Handlebars made the most sense as the templating language, as it's most similar to plain HTML (which my partner is comfortable with), but also allows for rendering the HTML with data we'll be pulling out of a database in the future.</p>
+<h3 id="hosting">Hosting</h3>
+<p>AWS is generally my go-to hosting platform, and while I will most likely host the finished website on AWS it made sense to avoid hosting costs and complexity while we're working on it.</p>
+<p>I have an Intel NUC running Ubuntu Server sitting on a desk in my loft; it currently runs a few different services but has plenty of capacity for a small website that will likely only get a few hundred hits in its lifetime. I also didn't have a website or API running publically from my home internet, so ports 80 and 443 are both available to forward from my router.</p>
+<p>I decided on hosting the Express application behind NGINX both as another learning opportunity, and because I couldn't be bothered to work out how to hook up Express to an SSL certificate.</p>
+<p>I have a dynamic IP address from my ISP, but thankfully I've been a fan and Patreon supporter of <a href="https://www.duckdns.org/">Duck DNS</a> for years. Duck DNS allows me to have one of their subdomains pointed at my IP address, and there's a script on my NUC that pings their service every 5 minutes to keep the DNS record up-to-date.</p>
+<p>I setup a new subdomain, and set the CNAME to point at my Duck DNS address.</p>
+<h2 id="setup">Setup</h2>
+<p>With the Express app already running on my NUC listening on port 3000, I installed NGINX and made myself a new config file</p>
+<pre><code class="language-sh">sudo apt install nginx
+
+# create new nginx config file
+sudo nano /etc/nginx/sites-available/test.robanderson.dev.conf
+</code></pre>
+<p>I added the following initial config to create a server listening on port 8080 (port 80 was already taken by Pihole) and forwarded all traffic to <code>http://localhost:3000</code> where the Express service was listening</p>
+<pre><code class="language-nginxconf">server {
+    server_name test.robanderson.dev;
+    listen 8080;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+</code></pre>
+<blockquote>
+<p>It's important at this stage to set the <code>server_name</code> to the url that's been forwarded to the IP address where the site is being hosted, otherwise the Certbot step won't work</p>
+</blockquote>
+<p>I then enabled the new site, disabled the default NGINX site, tested my config, and restarted the NGINX service</p>
+<pre><code class="language-sh"># create symlink to sites-enabled
+sudo ln -s /etc/nginx/sites-available/test.robanderson.dev.conf /etc/nginx/sites-enabled/
+
+# remove default site
+sudo rm /etc/nginx/sites-enabled/default
+
+# to test config changes
+sudo nginx -t
+
+# restart nginx
+sudo systemctl restart nginx
+</code></pre>
+<p>After opening up port 8080 in ufw, and forwarding 80 to 8080 in the settings for my router, I was able to access the Express site using my subdomain</p>
+<pre><code class="language-sh">sudo ufw allow 8080/tcp
+</code></pre>
+<p>The next step was to get a Let's Encrypt SSL certificate, and test I could access the site with HTTPS.</p>
+<p>The last time I used Let's Encrypt at an old job the process was mostly manual, and required following exact steps every three months after suddenly getting expired certificate warnings. Thankfully, a quick Google search showed that the process can be completely automated using Certbot.</p>
+<p>I didn't have anything running on port 443 on my NUC, but decided to use port 8443 internally to match my use of port 8080. I struggled for a while to find any Stack Overflow answers that showed how to use Certbot with alternate ports, but thankfully I found the command line options <code>--http-01-port</code> and <code>--https-port</code> in the Certbot documentation</p>
+<pre><code class="language-sh"># install certbot as a snap
+sudo snap install --classic certbot
+
+# create symlink to allow easier(?) execution
+sudo ln -s /snap/bin/certbot /usr/bin/certbot
+
+# get letsencrypt certificate using certbot
+# tell certbot that the server is listening on port 8080 and we want the ssl-enabled service to listen on port 8443
+sudo certbot --nginx --http-01-port 8080 --https-port 8443
+</code></pre>
+<p>Certbot automatically added the necessary config, and will auto-renew SSL certificates for me in the future before they expire; isn't technology marvellous.</p>
+<p>Certbot had made changes to my NGINX config, to listen on the new HTTPS port, and to use the new certificate</p>
+<pre><code class="language-nginxconf">server {
+    server_name test.robanderson.dev;
+    listen 8080;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    listen 8443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/test.robanderson.dev/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/test.robanderson.dev/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+}
+</code></pre>
+<p>After Certbot's changes, NGINX will listen and respond to requests on both port 8080 and 8443, but won't automatically redirect all HTTP requests to HTTPS. A few small tweaks to the config will perform redirects so all requests will be over HTTPS.</p>
+<ul>
+<li>Create a new <code>server</code> section to handle the redirects</li>
+<li>Copy the <code>server_name</code> to the new section</li>
+<li>Move <code>listen 8080;</code> to the new section</li>
+<li>Add <code>return 301</code> line so all requests get redirected to port 8443, with the request parameters intact</li>
+</ul>
+<pre><code class="language-nginxconf">server {
+    server_name test.robanderson.dev;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    listen 8443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/test.robanderson.dev/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/test.robanderson.dev/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+}
+
+server {
+    server_name test.robanderson.dev;
+    listen 8080;
+    return 301 https://test.robanderson.dev$request_uri;
+}
+</code></pre>
+<p>I then re-tested the NGINX config and restarted the service</p>
+<pre><code class="language-sh">sudo nginx -t
+
+sudo systemctl restart nginx
+</code></pre>
+<p>After opening port 8443 in ufw, and forwarding port 443 to 8443 in my router configuration, navigating to <code>http://test.robanderson.dev</code> will redirect me to <code>https://test.robanderson.dev</code> with a nice shiny new SSL certificate from Let's Encrypt.</p>
+<pre><code class="language-sh">sudo ufw allow 8443/tcp
+</code></pre>
+<p>Hopefully this helps someone in the future, or at least helps me when I inevitably forget how I set the site up.</p>
+
+                    <hr />
+                        <div class="centre">&#xA9; 2023 Rob Anderson</div>
+                </div>
+            </div>
+        </main>
+    </body>
+</html>
