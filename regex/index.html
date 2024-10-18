@@ -115,7 +115,6 @@
   function checkCell(cell) {
     const id = cell.getAttribute("id");
     const [_, col, row] = id.split('-');
-    console.log(`${col},${row}: ${cell.value}`);
     checkCol(col);
     checkRow(row);
   }
@@ -166,7 +165,6 @@
     }
 
     setCookie(s);
-    console.log(`stored state: ${s.toLowerCase()}`);
   }
 
   function setCookie(state) {
