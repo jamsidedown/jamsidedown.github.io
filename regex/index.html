@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Learn by doing</title>
+  <link rel="icon" href="https://robanderson.dev/images/favicon.png">
+  <style>
+      body { font-size: larger; font-family: monospace, sans-serif; }
+      input { width: 40px; height: 40px; font-size: large; text-align: center; }
+      table { padding-top: 40px; table-layout: fixed; }
+      td { width: 48px; height: 48px; }
+      th { padding: 8px; text-align: right; }
+      .rotate { writing-mode: vertical-lr; vertical-align: bottom; text-orientation: sideways; }
+      .centre { position: absolute; left: 50%; transform: translate(-50%, 0%); }
+  </style>
+</head>
+<body>
+<div class="centre">
+  <table id="table"></table>
+</div>
+<script type="application/javascript">
+  const rows = [
+    "[zsh]a(py|th)[on]",
+    "[gil](i|de)[web]{1,2}[path]?",
+    "[lua][curl][^sed][mock][js]",
+    "[^tlm][zip][^read][ruby]{2}",
+  ];
+
+  const cols = [
+    "z[^ig][toml]{2}",
+    "a?d?a?c?[xz]",
+    "(pe|rl)[yes][dart]",
+    "([yaml])[wasm]{2}\\1",
+    "[net][ph]p?[^ts]?[rails]",
+  ]
+
+  function initialise() {
+    const table = document.getElementById('table');
+    const header = table.createTHead();
+    const headerRow = header.insertRow(0);
+    const blankCell = document.createElement("th");
+    blankCell.setAttribute("scope", "col");
+    headerRow.appendChild(blankCell)
+    for (let col = 0; col < cols.length; col++) {
+      const cell = document.createElement("th");
+      cell.setAttribute("scope", "col");
+      cell.setAttribute("class", "rotate");
+      cell.setAttribute("id", `col-${col}`);
+      cell.setAttribute("style", "color: red;");
+      cell.innerText = cols[col];
+      headerRow.appendChild(cell);
+    }
+    const tableBody = table.createTBody();
+    for (let row = 0; row < rows.length; row++) {
+      const tableRow = tableBody.insertRow(row);
+      const rowHeader = document.createElement("th");
+      rowHeader.setAttribute("scope", "row");
+      rowHeader.setAttribute("id", `row-${row}`);
+      rowHeader.setAttribute("style", "color: red;");
+      rowHeader.innerText = rows[row];
+      tableRow.appendChild(rowHeader);
+      for (let col = 0; col < cols.length; col++) {
+        const cell = tableRow.insertCell(col + 1);
+        const input = document.createElement("input");
+        input.setAttribute("type", "text");
+        input.setAttribute("id", `input-${col}-${row}`);
+        input.setAttribute("size", "1");
+        input.setAttribute("maxlength", "1");
+        input.onkeyup = () => checkCell(input);
+        input.onkeydown = (ev) => navigate(input, ev);
+        cell.appendChild(input);
+      }
+    }
+
+    load();
+
+    // auto save every 20 seconds
+    setInterval(save, 20000);
+  }
+
+  const arrows = {
+    ArrowLeft: [-1, 0],
+    ArrowRight: [1, 0],
+    ArrowUp: [0, -1],
+    ArrowDown: [0, 1],
+  }
+
+  function navigate(cell, key) {
+    if (!(key.key in arrows) || (key.shiftKey)) {
+      return;
+    }
+
+    const [dx, dy] = arrows[key.key];
+
+    const id = cell.getAttribute("id");
+    const [_, col, row] = id.split('-');
+
+    const x = parseInt(col) + dx;
+    const y = parseInt(row) + dy;
+
+    const newCell = document.getElementById(`input-${x}-${y}`);
+    if (newCell) {
+      newCell.focus();
+      newCell.target.select();
+    }
+  }
+
+  function checkCell(cell) {
+    const id = cell.getAttribute("id");
+    const [_, col, row] = id.split('-');
+    console.log(`${col},${row}: ${cell.value}`);
+    checkCol(col);
+    checkRow(row);
+  }
+
+  function checkCol(col) {
+    let colText = '';
+    for (let row = 0; row < rows.length; row++) {
+      const input = document.getElementById(`input-${col}-${row}`);
+      colText += input.value;
+    }
+    const header = document.getElementById(`col-${col}`);
+    const pattern = new RegExp(`^${header.innerText}\$`);
+    if (colText.length === rows.length && pattern.test(colText.toLowerCase())) {
+      header.setAttribute("style", "color: green;");
+    } else {
+      header.setAttribute("style", "color: red");
+    }
+  }
+
+  function checkRow(row) {
+    let rowText = '';
+    for (let col = 0; col < cols.length; col++) {
+      const input = document.getElementById(`input-${col}-${row}`);
+      rowText += input.value;
+    }
+    const header = document.getElementById(`row-${row}`);
+    const pattern = new RegExp(`^${header.innerText}\$`);
+    if (rowText.length === cols.length && pattern.test(rowText.toLowerCase())) {
+      header.setAttribute("style", "color: green");
+    } else {
+      header.setAttribute("style", "color: red");
+    }
+  }
+
+  const letters = "abcdefghijklmnopqsrtuvwxyz";
+
+  function save() {
+    let s = "";
+    for (let row = 0; row < rows.length; row++) {
+      for (let col = 0; col < cols.length; col++) {
+        const cell = document.getElementById(`input-${col}-${row}`);
+        if (cell.value && letters.includes(cell.value.toLowerCase())) {
+          s += cell.value;
+        } else {
+          s += ".";
+        }
+      }
+    }
+
+    setCookie(s);
+    console.log(`stored state: ${s.toLowerCase()}`);
+  }
+
+  function setCookie(state) {
+    document.cookie = `state=${state.toLowerCase()}; SameSite=Strict; Secure`;
+  }
+
+  function getCookie() {
+    return document.cookie
+      .split("; ")
+      .find(c => c.startsWith("state="))
+      ?.split("=")[1];
+  }
+
+  function load() {
+    const state = getCookie();
+    if (state && state.length === cols.length * rows.length) {
+      for (let row = 0; row < rows.length; row++) {
+        for (let col = 0; col < cols.length; col++) {
+          const idx = (row * cols.length) + col;
+          const cell = document.getElementById(`input-${col}-${row}`);
+          if (cell && letters.includes(state[idx])) {
+            cell.value = state[idx];
+          }
+        }
+      }
+      for (let row = 0; row < rows.length; row++) {
+        checkRow(row);
+      }
+      for (let col = 0; col < cols.length; col++) {
+        checkCol(col);
+      }
+    }
+  }
+
+  window.onload = () => initialise();
+</script>
+</body>
+</html>
