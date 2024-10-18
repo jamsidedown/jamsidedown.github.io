@@ -12,6 +12,7 @@
       td { width: 48px; height: 48px; }
       th { padding: 8px; text-align: right; }
       .rotate { writing-mode: vertical-lr; vertical-align: bottom; text-orientation: sideways; height: 300px; }
+      .wide { min-width: 300px; width: 100%; }
       .centre { position: absolute; left: 50%; transform: translate(-50%, 0%); }
   </style>
 </head>
@@ -58,9 +59,12 @@
       const tableRow = tableBody.insertRow(row);
       const rowHeader = document.createElement("th");
       rowHeader.setAttribute("scope", "row");
-      rowHeader.setAttribute("id", `row-${row}`);
-      rowHeader.setAttribute("style", "color: red;");
-      rowHeader.innerText = rows[row];
+      const rowHeaderText = document.createElement("span");
+      rowHeaderText.setAttribute("id", `row-${row}`);
+      rowHeaderText.setAttribute("style", "color: red;");
+      rowHeaderText.setAttribute("class", "wide");
+      rowHeaderText.innerText = rows[row];
+      rowHeader.appendChild(rowHeaderText);
       tableRow.appendChild(rowHeader);
       for (let col = 0; col < cols.length; col++) {
         const cell = tableRow.insertCell(col + 1);
