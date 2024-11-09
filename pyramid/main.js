@@ -155,14 +155,18 @@ function onPointerUp(event) {
   document.removeEventListener( 'pointerup', onPointerUp );
 }
 
-function animate() {
+const clock = new THREE.Clock();
+let delta = 0;
+let interval = 1 / 30;
+
+function render() {
   if (animateRotate) {
-    group.rotation.y += 0.002;
+    group.rotation.y += 0.0075;
     targetRotationX = group.rotation.y;
-  } else {
-    group.rotation.y += (targetRotationX - group.rotation.y) * 0.05;
-    group.rotation.x += (targetRotationY - group.rotation.x) * 0.05;
   }
+
+  group.rotation.y += (targetRotationX - group.rotation.y) * 0.05;
+  group.rotation.x += (targetRotationY - group.rotation.x) * 0.05;
 
   for (const mesh of textMeshes) {
     mesh.lookAt(camera.position);
@@ -170,4 +174,15 @@ function animate() {
 
   camera.lookAt(cameraTarget);
   renderer.render(scene, camera);
+}
+
+function animate() {
+  delta += clock.getDelta();
+
+  if (delta > interval) {
+    render();
+    delta %= interval;
+  } else if (!animateRotate) {
+    render();
+  }
 }
