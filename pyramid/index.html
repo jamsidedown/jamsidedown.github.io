@@ -64,7 +64,7 @@
     <h1 class="text-centre">Learn by doing puzzle 3</h1>
     <h2 class="text-centre foot">Pyramid paths</h2>
 
-    <p>Find the maximum sum path from the top of each <a href="https://simple.wikipedia.org/wiki/Hexadecimal">hexadecimal</a> pyramid to the bottom, adding the node down to the left or down to the right each step to finish anywhere on the bottom row.</p>
+    <p>Find the maximum sum from adding the nodes in a path from the top of each <a href="https://simple.wikipedia.org/wiki/Hexadecimal">hexadecimal</a> pyramid to the bottom, adding the node down to the left or down to the right each step to finish anywhere on the bottom row.</p>
 
     <h3>Example 1</h3>
     <div class="text-centre">
@@ -80,7 +80,7 @@ c <span class="red">d</span> 2 5
     <p>The input file for this example is available here: <a href="example1.txt" download="example1.txt">example1.txt</a></p>
 
     <h3>Part 1</h3>
-    <p>Find the maximum sum path through this larger hex pyramid: <a href="part1.txt" download="part1.txt">part1.txt</a></p>
+    <p>Find the maximum sum through this larger hex pyramid: <a href="part1.txt" download="part1.txt">part1.txt</a></p>
     <div class="text-centre">
       <pre>
 <span class="red">43</span>
@@ -99,19 +99,20 @@ ef 8b 31 5f 98 ca 3d 14 c4
     </div>
 
     <h3>Part 2</h3>
-    <p>Find the maximum sum path through this much larger hex pyramid: <a href="part2.txt" download="part2.txt">part2.txt</a></p>
+    <p>Find the maximum sum through this much larger hex pyramid: <a href="part2.txt" download="part2.txt">part2.txt</a></p>
     <p>*Brute force solutions to part 1 probably won't scale to part 2</p>
 
     <hr>
 
     <h3>Example 2</h3>
     <div id="canvas" class="canvas"></div>
+    <p>With 3D pyramids, each node in the path has 4 options for the next node to navigate to; back left, back right, front left, and front right.</p>
     <p>Here the optimal path, shown in red again, gives the maximum sum of 46:</p>
     <p>5 + c + e + f = 0x2e = 46</p>
     <p>The input file for this example is available here: <a href="example2.txt" download="example2.txt">example2.txt</a></p>
 
     <h3>Part 3</h3>
-    <p>Find the maximum sum path through this 3D hex pyramid: <a href="part3.txt" download="part3.txt">part3.txt</a></p>
+    <p>Find the maximum sum through this 3D hex pyramid: <a href="part3.txt" download="part3.txt">part3.txt</a></p>
     <p>*If you're having difficulty parsing it, try parsing the example first.</p>
 
     <div class="foot">&nbsp;</div>
