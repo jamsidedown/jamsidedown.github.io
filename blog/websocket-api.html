@@ -15,13 +15,6 @@
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/base16/espresso.min.css">
 
         <script src="js/highlight.min.js"></script>
-        <script>
-            document.addEventListener('DOMContentLoaded', (event) => {
-                document.querySelectorAll('code').forEach((el) => {
-                    hljs.highlightElement(el);
-                });
-            });
-        </script>
     </head>
     <body>
         <div class="background"></div> 
@@ -320,9 +313,24 @@ ConnectIntegration:
 <p>Hopefully this post and repository helps someone develop a websocket project with a little less frustration than if they hadn’t found this post.</p>
 
                     <hr />
-                        <div class="centre">&#xA9; 2023 Rob Anderson</div>
+                        <div class="centre">&#xA9; 2023-2025 Rob Anderson</div>
                 </div>
             </div>
         </main>
+        <script>
+            document.addEventListener('DOMContentLoaded', (event) => {
+                document.querySelectorAll('code').forEach((el) => {
+                    hljs.highlightElement(el);
+                });
+            });
+
+            window.onload = () => {
+                for (const link of document.getElementsByTagName('a')) {
+                    if (!link.href.startsWith('https://robanderson.dev')) {
+                        link.target = '_blank';
+                    }
+                }
+            };
+        </script>
     </body>
 </html>

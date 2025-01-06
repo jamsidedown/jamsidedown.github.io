@@ -15,13 +15,6 @@
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/base16/espresso.min.css">
 
         <script src="js/highlight.min.js"></script>
-        <script>
-            document.addEventListener('DOMContentLoaded', (event) => {
-                document.querySelectorAll('code').forEach((el) => {
-                    hljs.highlightElement(el);
-                });
-            });
-        </script>
     </head>
     <body>
         <div class="background"></div> 
@@ -31,6 +24,7 @@
                     <a class="home" href="./">Home</a>
                     <div class="centre">
                         <h1>Modbus RTU with a Raspberry Pi</h1>
+                            <span>2025-01-06</span>
                     </div>
                     <hr />
                     <h2 id="preamble">Preamble</h2>
@@ -142,5 +136,20 @@ b8 cf   crc16 checksum
                 </div>
             </div>
         </main>
+        <script>
+            document.addEventListener('DOMContentLoaded', (event) => {
+                document.querySelectorAll('code').forEach((el) => {
+                    hljs.highlightElement(el);
+                });
+            });
+
+            window.onload = () => {
+                for (const link of document.getElementsByTagName('a')) {
+                    if (!link.href.startsWith('https://robanderson.dev')) {
+                        link.target = '_blank';
+                    }
+                }
+            };
+        </script>
     </body>
 </html>
