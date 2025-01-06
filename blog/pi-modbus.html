@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>Modbus RTU with a Raspberry Pi</title>
+
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+                <meta name="description" content="Setting up a Raspberry pi to connect to devices using Modbus RTU">
+
+        <link rel="icon" href="https://robanderson.dev/images/favicon.png">
+
+        <link rel="stylesheet" href="css/blog.css">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Code+Pro&display=swap">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro&display=swap">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/base16/espresso.min.css">
+
+        <script src="js/highlight.min.js"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', (event) => {
+                document.querySelectorAll('code').forEach((el) => {
+                    hljs.highlightElement(el);
+                });
+            });
+        </script>
+    </head>
+    <body>
+        <div class="background"></div> 
+        <main>
+            <div class="terminal">
+                <div class="rendered">
+                    <a class="home" href="./">Home</a>
+                    <div class="centre">
+                        <h1>Modbus RTU with a Raspberry Pi</h1>
+                    </div>
+                    <hr />
+                    <h2 id="preamble">Preamble</h2>
+<p>On a now-not-so-recent client project I was tasked with developing an IoT device capable of communicating with devices via Modbus RTU. I hadn't heard of Modbus before starting this project, so I tried to prepare myself for a steep learning curve.</p>
+<p>I found a number of blog posts, tutorials, and stackoverflow answers when looking at how to interface with Modbus devices, but the documentation I used was very fragmented. This guide serves more as all-in-one documentation to my future self, and to anyone wanting to try to solve a similar problem; hopefully this post will help someone to avoid the same issues I ran into and had to figure out a way round.</p>
+<h2 id="hardware-and-software">Hardware and software</h2>
+<p>The <a href="https://www.raspberrypi.com/products/raspberry-pi-4-model-b/">Raspberry Pi 4</a> was chosen as the prototyping device due to great documentation, a long support period, reasonably low cost, and good availability. <a href="https://ubuntu.com/download/raspberry-pi">Ubuntu Server</a> 22.04 was chosen as the operating system as I'm reasonably comfortable with Ubuntu having used it on laptops and home servers for several years now, and it also has a long support period.
+Long term support is probably less important for a prototyping device than for a production device, but a well-supported development platform makes life easier for any future developers who could be working on this project.</p>
+<p>After a little research, I discovered that Modbus RS485 to UART adapters were reasonably cheap, and simple enough to solder and connect up to the Raspberry Pi. I bought a <a href="https://www.amazon.co.uk/dp/B0B3MXPH3Y">pack of 6 adapters from Amazon</a>, and while they now seem to be unavailable, there are many other similar ones priced around £1 per adapter. The design seems to be based on <a href="https://joy-it.net/en/products/COM-TTL-RS485">this adapter from Joy-IT</a>, who provide very good documentation.</p>
+<p>My original prototype was written with Python, as it's a language I'm fond of and have a fair bit of experience with. However, at the time there weren't many Python developers available at work so primarily due to availability and ease of onboarding I decided to proceed with Typescript as the language we'd build the product with.
+The examples I'll show will use Javascript to demonstrate how to connect and request registers over Modbus RTU.</p>
+<h2 id="configuring-the-raspberry-pi">Configuring the Raspberry Pi</h2>
+<h3 id="configuring-for-uart">Configuring for UART</h3>
+<p>Ubuntu Server 22.04 on the Raspberry Pi ships with UART enabled, but by default there is a login terminal running for serial TTY on the two UART used here to connect to the RS485 adapter. This can be disabled by disabling the <code>serial-getty</code> service, and removing the console config from <code>/boot/firmware/cmdline.txt</code>.</p>
+<pre><code class="language-sh">sudo systemctl stop serial-getty&#64;ttyS0.service
+sudo systemctl disable serial-getty&#64;ttyS0.service
+sudo systemctl mask serial-getty&#64;ttyS0.service
+</code></pre>
+<pre><code class="language-sh">sudo nano /boot/firmware/cmdline.txt
+# remove `console=serial0,115200` from the start of the line
+</code></pre>
+<p>Ubuntu Server 22.04 also seems to have Bluetooth running on the UART interface by default, so a line of config can be added to <code>/boot/firmware/config.txt</code> to allow both UART and Bluetooth to operate at the same time.</p>
+<pre><code class="language-sh">sudo nano /boot/firmware/config.txt
+# ensure `enable_uart=1` is present in the file
+# add `dtoverlay=miniuart-bt` after the `enable_uart` line
+</code></pre>
+<p>Now we can give the current user permissions to use UART via the TXD and RXD pins.</p>
+<pre><code class="language-sh">sudo adduser rob tty
+sudo adduser rob dialout
+</code></pre>
+<p>Once connected, the Modbus adapter can be communicated with using the path <code>/dev/ttyAMA0</code>, with whatever baud rate is configured on the device being connected to. The Modbus adapter I'm using handles CTS/RTS automatically with a small capacitor, which made this device a lot easier to use with the Raspberry Pi than other adapters I was trying out.</p>
+<h3 id="wiring-up-the-adapter">Wiring up the adapter</h3>
+<p>I got help from a more capable colleague to solder <a href="https://www.amazon.co.uk/dp/B01461DQ6S">90º pins</a> onto the RS485 adapter to make it easier to attach cables to the GPIO headers on the Raspberry Pi. A cheap <a href="https://www.amazon.co.uk/dp/B001BMSBD4">helping hand tool with a magnifying glass</a> made this a lot easier to solder.</p>
+<p><img src="images/RS485-UART-adapter.jpeg" alt="Modbus RS485 to UART adapter" /></p>
+<p>The wiring to the Raspberry Pi can now be done using some cheap <a href="https://thepihut.com/products/thepihuts-jumper-bumper-pack-120pcs-dupont-wire">Dupont wires</a>.</p>
+<ul>
+<li>The <code>VCC</code> pin on the adapter connected to one of the 5V pins on the Pi (pin 2 or 4)</li>
+<li>The <code>TXD</code> pin on the adapter connected to the TXD pin on the Pi (pin 8/GPIO 14)</li>
+<li>The <code>RXD</code> pin on the adapter connected to the RXD pin on the Pi (pin 10/GPIO 15)</li>
+<li>The <code>GND</code> pin on the adapter connected to one of the ground pins on the Pi (I used pin 6)</li>
+</ul>
+<p><img src="images/rs485-pi.drawio.png" alt="RS485 adapter to Raspberry Pi wiring" /></p>
+<p>The A+ pin on the adapter can then be wired up to the +5V pin on whatever modbus device is being communicated with, and the B- to the -5V pin.</p>
+<blockquote>
+<p>I've used standard British wire colours for power/live (brown) and the ground (yellow/green), then just made up the rest of the colours for the rest of the pins because why not.</p>
+</blockquote>
+<h2 id="reading-modbus-registers">Reading Modbus registers</h2>
+<h3 id="installing-requirements">Installing requirements</h3>
+<p>First, Node.js will need to be installed on the Raspberry Pi. The version included in <code>apt</code> on Ubuntu is pretty old, so the <a href="https://deb.nodesource.com/">following instructions</a> are for installing Node 20.</p>
+<pre><code class="language-sh">curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install nodejs
+
+# check installed version
+node --version
+</code></pre>
+<p>Now we can install a library to work with the data being sent and received via the UART pins.</p>
+<p>I have been using <a href="https://www.npmjs.com/package/modbus-serial">modbus-serial</a> to work with the Modbus devices on my client project with no issues. It uses <a href="https://www.npmjs.com/package/serialport">serialport</a> under the hood, with dedicated instructions for reading from holding and input registers, and for writing one or more registers too. It also seems to be reasonably actively maintained (at the time of writing).</p>
+<pre><code class="language-sh">npm install modbus-serial
+</code></pre>
+<h3 id="running-the-code">Running the code</h3>
+<p>As an example, I'm going to read the current battery percentage from a <a href="https://www.solaxpower.com/products/x3-hybrid-g4/">Solax X3 Hybrid G4</a> using a Javascript module <code>test-modbus.mjs</code>. The battery percentage is an input register at address <code>0x1C</code>.</p>
+<pre><code class="language-javascript">import ModbusRTU from 'modbus-serial';
+
+async function run() {
+    const client = new ModbusRTU();
+
+    // set the client ID to 1 (as configured on the Solax)
+    client.setID(1);
+
+    // set the timeout to 10 seconds
+    client.setTimeout(10000);
+
+    // connect via the UART pins, with a baud rate of 19200 bps (as configured on the Solax)
+    await client.connectRTUBuffered('/dev/ttyAMA0', {baudRate: 19200});
+    
+    // read the battery percentage from the input registers and log out the result
+    const buffer = await client.readInputRegisters(0x1c, 1);
+    const percentage = buffer.data[0];
+    console.log(`Battery is at ${percentage}%`);
+}
+
+run();
+</code></pre>
+<p>This can then be run with</p>
+<pre><code class="language-sh">node test-modbus.mjs
+# prints: Battery is at 84%
+</code></pre>
+<blockquote>
+<p>Sometimes it's useful to see what bytes are being sent via Modbus RTU, so debugging in the <code>modbus-serial</code> library can be enabled by setting the <code>DEBUG</code> environment variable to <code>modbus*</code>: <code>DEBUG=modbus* node test-modbus.mjs</code></p>
+</blockquote>
+<p>By debugging the <code>modbus-serial</code> library we can see that the buffer sent over the serial UART connection is <code>01 04 00 1c 00 01 f0 0c</code></p>
+<pre><code class="language-text">01      client ID
+04      read input register(s) function code
+00 1c   starting register
+00 01   number of registers to read
+f0 0c   crc16 checksum
+</code></pre>
+<p>If I were just using the <code>Serialport</code> library without <code>modbus-serial</code>, I'd have to construct this payload myself to send it to the Modbus device.</p>
+<p>The response to this request would be <code>01 04 02 00 54 b8 cf</code></p>
+<pre><code class="language-text">01      client ID
+04      read input register(s) function code
+02      number of bytes in response
+00 54   decimal value 84
+b8 cf   crc16 checksum
+</code></pre>
+
+                    <hr />
+                        <div class="centre">&#xA9; 2023-2025 Rob Anderson</div>
+                </div>
+            </div>
+        </main>
+    </body>
+</html>
