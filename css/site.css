@@ -65,11 +65,11 @@ a {
     font-weight: bold;
     color: #d197d9;
     text-decoration: none;
-    padding: 2px 5px;
 }
 
 a:focus {
-    outline: 2px solid yellow;
+    outline: none;
+    border-bottom: #d197d9 2px solid;
 }
 
 .file {
