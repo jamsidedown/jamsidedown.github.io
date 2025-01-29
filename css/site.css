@@ -67,7 +67,7 @@ a {
     text-decoration: none;
 }
 
-a:focus {
+a:focus, a:hover {
     outline: none;
     border-bottom: #d197d9 2px solid;
 }
