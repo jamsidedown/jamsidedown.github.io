@@ -85,7 +85,7 @@ node --version
 <pre><code class="language-sh">npm install modbus-serial
 </code></pre>
 <h3 id="running-the-code">Running the code</h3>
-<p>As an example, I'm going to read the current battery percentage from a <a href="https://www.solaxpower.com/products/x3-hybrid-g4/">Solax X3 Hybrid G4</a> using a Javascript module <code>test-modbus.mjs</code>. The battery percentage is an input register at address <code>0x1C</code>.</p>
+<p>As an example, I'm going to read the current battery percentage from a <a href="https://www.solaxpower.com/products/x3-hybrid-g4/">Solax X1 Hybrid G4</a> using a Javascript module <code>test-modbus.mjs</code>. The battery percentage is an input register at address <code>0x1C</code>.</p>
 <pre><code class="language-javascript">import ModbusRTU from 'modbus-serial';
 
 async function run() {
