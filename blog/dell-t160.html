@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>6 months with the Dell PowerEdge T160</title>
+
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+                <meta name="description" content="6 month review of the Dell PowerEdge T160">
+
+        <link rel="icon" href="https://robanderson.dev/images/favicon.png">
+
+        <link rel="stylesheet" href="css/blog.css">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Code+Pro&display=swap">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro&display=swap">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/base16/espresso.min.css">
+
+        <script src="js/highlight.min.js"></script>
+    </head>
+    <body>
+        <div class="background"></div> 
+        <main>
+            <div class="terminal">
+                <div class="rendered">
+                    <a class="home" href="./">Home</a>
+                    <div class="centre">
+                        <h1>6 months with the Dell PowerEdge T160</h1>
+                            <span>2025-02-11</span>
+                    </div>
+                    <hr />
+                    <p><a href="https://www.dell.com/en-uk/shop/ipovw/poweredge-t160"><img src="images/dell-t160.png" alt="Dell PowerEdge T160" /></a></p>
+<h2 id="tldr">TL;DR</h2>
+<p>My <a href="https://www.dell.com/en-uk/shop/ipovw/poweredge-t160">Dell T160</a> is a very capable small server, and will be more than powerful enough for me for several years. It's reasonably quiet, doesn't use too much power, and it's tool-less design is well-thought-out.</p>
+<p>The server arrived significantly faster than expected, and the packaging meant it arrived in perfect condition.</p>
+<p>Installing Ubuntu Server was easy, though I did have to go hunting through my loft for a VGA cable to connect to a monitor.</p>
+<p>My main frustrations have been with the lack of hard drive caddies that came with my server, despite upgrading the chassis to support three HDDs and two SSDs. I've been unable to buy any from Dell or the reseller I was eventually given the email address for, so had to buy and modify some cheap 3.5-inch caddies from Ebay.</p>
+<h2 id="why-did-i-buy-a-home-server">Why did I buy a home server?</h2>
+<p>I bought my Gen8 HP MicroServer in 2015 and for 9 years it served me well. It wasn't particularly fast, running an Intel Celeron G1610T with 4GB of DDR3 RAM, but was a very capable NAS able to saturate gigabit ethernet when transferring files across my local network. It also cost me £115 after cashback when HP were busy selling off old stock while they rebranded to HPE. (thanks!)</p>
+<p><a href="https://support.hpe.com/hpesc/public/docDisplay?docId=c03793258&amp;page=GUID-773FBBD8-8BD2-4C04-BA2B-055BA390D650.html"><img src="images/hp-ms-gen8.png" alt="HP MicroServer Gen8" /></a></p>
+<p>I had a boot SSD resting in one of the drive bays, and two 2TB drives in RAID 1 in two of the others; more than enough to back up my desktop and laptop as I don't any ripped films or music. Spotify and Netflix have made my storage requirements much less than they could have been.</p>
+<p>I could have upgraded the RAM pretty cheaply, but the CPU was a little tricker. Compatible low-power Xeon processors were difficult to find online in the UK, and compatible Core i3's didn't offer much of a performance boost.</p>
+<p>For more demanding compute-based workloads, I had repurposed an Intel NUC with a Core i5-8259U and 16GB of DDR4 RAM. I was primarily running a service to track rainfall and river levels across Northumberland, and was finding that trying to train predictive models was taking an order of magnitude longer on the MicroServer than on my old laptop.</p>
+<p>The NUC handled this very well, but the urge to spend money I didn't need to spend was creeping in after a long period of not splashing out. I wanted to be able to run a few websites, serve as a central point for my backups, and do quick predictions of river levels a few times per day.</p>
+<h3 id="why-didnt-i-build-a-new-server">Why didn't I build a new server?</h3>
+<p>I'd been considering building a home server for a few years, but always found that server-grade motherboards were £400+, and anything as compact as my MicroServer was going to be tricky to put together cheaper than just buying a new server.</p>
+<p>The announcement of the AMD EPYC 4004 series processors piqued my interest, but again <a href="https://www.scan.co.uk/products/asrock-b650d4u-amd-b650-s-am5-ddr5-sata3-pcie-50-2x-m2-gbe-usb-32-gen1-micro-atx">the motherboards were limited and expensive</a>, and it would appear that 6 months later there are still only <a href="https://www.scan.co.uk/shop/computer-hardware/cpu-amd-server/amd-epyc-4004-series-zen-4-1p-socket-am5-server-processor#visible=0">a couple of models available</a> at a higher retail price than AMD initially suggested.</p>
+<p>This is the motherboard I was considering</p>
+<p><a href="https://www.scan.co.uk/products/asrock-b650d4u-amd-b650-s-am5-ddr5-sata3-pcie-50-2x-m2-gbe-usb-32-gen1-micro-atx"><img src="images/epyc-4004-motherboard.png" alt="AsRock B650D4U motherboard on Scan" /></a></p>
+<p>Here are the (still not available CPUs)</p>
+<p><a href="https://www.scan.co.uk/shop/computer-hardware/cpu-amd-server/amd-epyc-4004-series-zen-4-1p-socket-am5-server-processor"><img src="images/scan-epyc-4004-cpus.png" alt="EPYC 4004 processors on Scan" /></a></p>
+<p>And the initially advertised CPU prices</p>
+<p><a href="https://www.phoronix.com/review/amd-epyc-4124p"><img src="images/epyc-4004-pricing.png" alt="EPYC 4004 prices from Phoronix" /></a></p>
+<h3 id="which-server-to-buy">Which server to buy?</h3>
+<p>I had a few thoughts about which server to buy; there were some refurbished servers available online but most weren't discounted a huge amount, and I was struggling to justify spending over £500 for a large, loud server with DDR3 or DDR4 memory.</p>
+<p>A new Gen11 or Gen10 plus v2 (?) HPE MicroServer would have been a good shout, but at the time I committed to the T160 they still weren't generally available in the UK, and were a little more expensive for comparable specs. The Gen10 plus v2 would have been a better choice, but it's difficult not to buy the latest and greatest when it's only a smidge more expensive.</p>
+<p><a href="https://buy.hpe.com/uk/en/compute/proliant-microserver/proliant-microserver/proliant-microserver/hpe-proliant-microserver-gen11/p/1014826370"><img src="images/hpe-ms-gen11.png" alt="HPE MicroServer Gen11" /></a></p>
+<p>The Dell eventually won me over, and at this point I just assume it was the price for the specs I was buying.</p>
+<h2 id="the-spec">The spec</h2>
+<p>I configured one of the &quot;Value&quot; offerings to have an Intel Xeon E-2434, and 32GB of ECC DDR5 memory. I chose the cheapest HDD I could find - a 2TB Seagate drive and upgraded the chassis to a 500W power supply and to support five internal SATA drives; two 2.5-inch drives and three 3.5-inch drives.</p>
+<p>The total price ended up being £1320 including VAT, which I still think was pretty good value.</p>
+<h2 id="teething-problems">Teething problems</h2>
+<p>As mentioned in the TL;DR, the primary issue I've had with the dell has been with the lack of supplied disk caddies, my inability to buy them from Dell or resellers, and the lack of transparency when buying the server that a chassis supporting five drives only comes with one caddy for the supplied overpriced drive.</p>
+<p>I ended up having to buy caddies from Ebay, and filing some of the plastic at the bottom of them in order to make them fit into the T160.</p>
+<p>Two caddies for £10 was a pretty good deal, it's just a shame I mangled them and my 2.5-inch SSD is still just floating in the slot where I'd put a caddy if only I had one.</p>
+<p><a href="https://www.ebay.co.uk/itm/185586553971"><img src="images/caddies.png" alt="Dell OptiPlex caddies" /></a></p>
+<p>I was also expecting some additional features in the free version of iDRAC, like the ability to track power usage without relying on a smart plug.</p>
+<h2 id="i-should-have-just-moved-to-the-cloud">I should have just moved to the cloud</h2>
+<p>Due to semi-regular short power-cuts where I live, my broadband connection isn't really reliable to host any website that I want more than two nines of availability.</p>
+<p>I've recently starting paying for a little VPS from Hetzner, which is costing me €3.95 per month (including VAT). It only has 2 cores, 4GB of RAM, and a 40GB SSD on a shared host, but it's a lot more reliable than anything hosted at home, and connected to a much faster network.</p>
+<p>I could have got an 8 core VPS with 16GB of RAM and a 160GB SSD for €14.39, and run it for 110 months (at the current exchange rate) and I'd still end up better off because I wouldn't be paying for the electricity.</p>
+<p>I already encrypt and back up my files to another cloud backup service, so going fully cloud would have generally been a good idea, aside from losing my NAS. Storing large files on my home server does allow me to use reasonably small SSDs in my laptop and desktop PC, and just rely on the 1Gb/s read speeds I get from my network shares.</p>
+<p>There's no conclusion here; I like having a home server, though it was probably a little bit of a waste of money.</p>
+
+                    <hr />
+                        <div class="centre">&#xA9; 2023-2025 Rob Anderson</div>
+                </div>
+            </div>
+        </main>
+        <script>
+            document.addEventListener('DOMContentLoaded', (event) => {
+                document.querySelectorAll('code').forEach((el) => {
+                    hljs.highlightElement(el);
+                });
+            });
+
+            window.onload = () => {
+                for (const link of document.getElementsByTagName('a')) {
+                    if (!link.href.startsWith('https://robanderson.dev')) {
+                        link.target = '_blank';
+                    }
+                }
+            };
+        </script>
+    </body>
+</html>
