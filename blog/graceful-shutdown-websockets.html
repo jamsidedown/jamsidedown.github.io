@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>Gracefully shutting down an ASP.NET Core websockets API</title>
+
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+                <meta name="description" content="Gracefully shutting down an ASP.NET Core websockets API when systemd hangs">
+
+        <link rel="icon" href="https://robanderson.dev/images/favicon.png">
+
+        <link rel="stylesheet" href="css/blog.css">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Code+Pro&display=swap">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro&display=swap">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/base16/espresso.min.css">
+
+        <script src="js/highlight.min.js"></script>
+    </head>
+    <body>
+        <div class="background"></div> 
+        <main>
+            <div class="terminal">
+                <div class="rendered">
+                    <a class="home" href="./">Home</a>
+                    <div class="centre">
+                        <h1>Gracefully shutting down an ASP.NET Core websockets API</h1>
+                            <span>2025-05-03</span>
+                    </div>
+                    <hr />
+                    <h2 id="background">Background</h2>
+<p>I've recently been developing a maze puzzle for an initiative at work; the puzzle has a web frontend, a couple of REST endpoints, and a websocket endpoint to interact with the maze.</p>
+<p>It's been running just fine on my home server as a systemd service, but I have noticed that whenever I update the build and restart the service it's been hanging for around 90 seconds before systemd gets tired of waiting and sends a <code>SIGKILL</code>.</p>
+<p>I could replicate the issue locally in Rider (though shutdown was taking significantly less time), but not when running with the debugger attached. The application shut down immediately when there weren't any active websocket connections, but seemed to get stuck after logging <code>Application is shutting down...</code> to the console when there were.</p>
+<p>The websocket connections were being stored in a static instance of a <code>ConcurrentDictionary</code>, mapping the id of a maze to a collection of websocket connections. This allowed a user to connect to their maze from their browser, and also connect from their chosen programming language to solve the maze programmatically.</p>
+<p>This <code>ConcurentDictionary</code> is referred to as &quot;<code>Topics</code>&quot; as I've reused a load of code I'd written for a Pub/Sub service in the past. Each <code>Topic</code> has a <code>Clients</code> property with the type <code>ConcurrentDictionary&lt;string, WebSocket&gt;</code> that maps UUIDs to each websocket connection.</p>
+<h2 id="fixing-my-issue">Fixing my issue</h2>
+<p>The websocket connection handler has a <code>CancellationToken</code> being passed in, but that appears to only fire when the client disconnects.</p>
+<p>After googling around for a solution, I tried adding a new handler to <code>AppDomain.CurrentDomain.ProcessExit</code>, but wasn't able to get the event to fire.</p>
+<p>I was also told I could register an <code>IHostedService</code> and cleanup using the <code>StopAsync</code> method, but also found I wasn't able to get it to fire at the right time.</p>
+<p>I get the feeling that the active websocket connections might have been preventing these handlers to fire.</p>
+<p>In the end, I discovered that <code>IHostApplicationLifetime</code> has a <code>CancellationToken</code> called <code>ApplicationStopping</code>, that I could wait on for the <code>SIGINT</code> or <code>SIGTERM</code> that systemd sends to restart the service.</p>
+<p>The end of the main <code>Program.cs</code> now looks like</p>
+<pre><code class="language-csharp">...
+
+app.UseWebsockets();
+
+var shutdownTask = Task.Run(async () =&gt;
+{
+    app.Lifetime.ApplicationStopping.WaitHandler.WaitOne();
+    await WebsocketController.Topics.Shutdown();
+});
+
+app.Run();
+
+await shutdownTask;
+</code></pre>
+<p>The <code>shutdownTask</code> runs before the blocking call to <code>app.Run()</code>, with <code>WaitHandle.WaitOne()</code> blocking the task until <code>SIGINT</code> or <code>SIGTERM</code> has been received. At this point each of the client connections are sent a shutdown error message and are disconnected.</p>
+<p>The disconnect code is roughly</p>
+<pre><code class="language-csharp">public static async Task Shutdown(this ConcurrentDictionary&lt;string, Topic&gt; topics)
+{
+    var clients = topics.Values.SelectMany(topic =&gt; topic.Clients).ToList();
+    
+    foreach (var (id, ws) in clients)
+    {
+        try
+        {
+            await ws.SendMessage(new ErrorModel(&quot;Server shutting down&quot;));
+            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, &quot;Connection closed&quot;, CancellationToken.None);
+            Console.WriteLine($&quot;Disconnected {id}&quot;);
+        }
+        catch
+        {
+            // client may already have disconnected since calling Shutdown
+            // do nothing
+        }
+    }
+}
+</code></pre>
+<p><code>Shutdown</code> is a static extension method called on the <code>ConcurrentDictionary</code> of topics.</p>
+<p>I collect the client connections into a list at the start of the function to avoid iterating through the collection as it's being modified, as the disconnecting clients get removed from the <code>ConcurrentDictionary</code> by the websocket handler as they disconnect. I also wrap each disconnect in a try/catch block to ensure that issues disconnecting one client won't affect disconnecting other clients.</p>
+<p><code>WebSocket.SendMessage&lt;T&gt;</code> is another extension method that serialises a model, converts the json string to bytes, and sends it to over the websocket connection.</p>
+<pre><code class="language-csharp">public static async Task SendMessage&lt;T&gt;(this WebSocket websocket, T model, CancellationToken token = default)
+{
+    var json = JsonSerializer.Serialize(model);
+    var bytes = Encoding.UTF8.GetBytes(json);
+    await websocket.SendAsync(bytes, WebSocketMessageType.Text, endOfMessage: true, token);
+}
+</code></pre>
+<h2 id="conclusion">Conclusion</h2>
+<p>This solution seems to work pretty well for my use case, and means I can update and restart my service without it hanging for over a minute.</p>
+<p>I could set off all the disconnects at once and collect a list of tasks to await with <code>Task.WhenAll</code>, but given this project was for a small audience, it's unlikely to need to disconnect a large number of clients and taking a few seconds to shut down is entirely acceptable.</p>
+<p>I'm sure there are more correct ways to do handle the shutdown event too, but given this isn't a production-grade application and wasn't being written for a client I'm happy enough with how it works.</p>
+
+                    <hr />
+                        <div class="centre">&#xA9; 2023-2025 Rob Anderson</div>
+                </div>
+            </div>
+        </main>
+        <script>
+            document.addEventListener('DOMContentLoaded', (event) => {
+                document.querySelectorAll('code').forEach((el) => {
+                    hljs.highlightElement(el);
+                });
+            });
+
+            window.onload = () => {
+                for (const link of document.getElementsByTagName('a')) {
+                    if (!link.href.startsWith('https://robanderson.dev')) {
+                        link.target = '_blank';
+                    }
+                }
+            };
+        </script>
+    </body>
+</html>
