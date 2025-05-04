@@ -6,8 +6,8 @@
 		<description />
 		<copyright>2025</copyright>
 		<managingEditor>Rob Anderson</managingEditor>
-		<pubDate>Sun, 04 May 2025 15:51:11 GMT</pubDate>
-		<lastBuildDate>Sun, 04 May 2025 15:51:11 GMT</lastBuildDate>
+		<pubDate>Sun, 04 May 2025 16:36:29 GMT</pubDate>
+		<lastBuildDate>Sun, 04 May 2025 16:36:29 GMT</lastBuildDate>
 		<item>
 			<title>Gracefully shutting down an ASP.NET Core websockets API</title>
 			<link>https://robanderson.dev/blog/graceful-shutdown-websockets.html</link>
