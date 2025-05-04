@@ -1,0 +1,1215 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<rss xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0">
+	<channel>
+		<title>Rob Anderson's Blog</title>
+		<link>https://robanderson.dev/blog</link>
+		<description />
+		<copyright>2025</copyright>
+		<managingEditor>Rob Anderson</managingEditor>
+		<pubDate>Sun, 04 May 2025 15:45:16 GMT</pubDate>
+		<lastBuildDate>Sun, 04 May 2025 15:45:16 GMT</lastBuildDate>
+		<item>
+			<title>Gracefully shutting down an ASP.NET Core websockets API</title>
+			<link>https://robanderson.dev/blog/graceful-shutdown-websockets.html</link>
+			<description>Gracefully shutting down an ASP.NET Core websockets API when systemd hangs</description>
+			<guid>https://robanderson.dev/blog/graceful-shutdown-websockets</guid>
+			<pubDate>Sat, 03 May 2025 00:00:00 GMT</pubDate>
+			<content:encoded>&lt;h2 id="background"&gt;Background&lt;/h2&gt;
+&lt;p&gt;I've recently been developing a maze puzzle for an initiative at work; the puzzle has a web frontend, a couple of REST endpoints, and a websocket endpoint to interact with the maze.&lt;/p&gt;
+&lt;p&gt;It's been running just fine on my home server as a systemd service, but I have noticed that whenever I update the build and restart the service it's been hanging for around 90 seconds before systemd gets tired of waiting and sends a &lt;code&gt;SIGKILL&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;I could replicate the issue locally in Rider (though shutdown was taking significantly less time), but not when running with the debugger attached. The application shut down immediately when there weren't any active websocket connections, but seemed to get stuck after logging &lt;code&gt;Application is shutting down...&lt;/code&gt; to the console when there were.&lt;/p&gt;
+&lt;p&gt;The websocket connections were being stored in a static instance of a &lt;code&gt;ConcurrentDictionary&lt;/code&gt;, mapping the id of a maze to a collection of websocket connections. This allowed a user to connect to their maze from their browser, and also connect from their chosen programming language to solve the maze programmatically.&lt;/p&gt;
+&lt;p&gt;This &lt;code&gt;ConcurentDictionary&lt;/code&gt; is referred to as &amp;quot;&lt;code&gt;Topics&lt;/code&gt;&amp;quot; as I've reused a load of code I'd written for a Pub/Sub service in the past. Each &lt;code&gt;Topic&lt;/code&gt; has a &lt;code&gt;Clients&lt;/code&gt; property with the type &lt;code&gt;ConcurrentDictionary&amp;lt;string, WebSocket&amp;gt;&lt;/code&gt; that maps UUIDs to each websocket connection.&lt;/p&gt;
+&lt;h2 id="fixing-my-issue"&gt;Fixing my issue&lt;/h2&gt;
+&lt;p&gt;The websocket connection handler has a &lt;code&gt;CancellationToken&lt;/code&gt; being passed in, but that appears to only fire when the client disconnects.&lt;/p&gt;
+&lt;p&gt;After googling around for a solution, I tried adding a new handler to &lt;code&gt;AppDomain.CurrentDomain.ProcessExit&lt;/code&gt;, but wasn't able to get the event to fire.&lt;/p&gt;
+&lt;p&gt;I was also told I could register an &lt;code&gt;IHostedService&lt;/code&gt; and cleanup using the &lt;code&gt;StopAsync&lt;/code&gt; method, but also found I wasn't able to get it to fire at the right time.&lt;/p&gt;
+&lt;p&gt;I get the feeling that the active websocket connections might have been preventing these handlers to fire.&lt;/p&gt;
+&lt;p&gt;In the end, I discovered that &lt;code&gt;IHostApplicationLifetime&lt;/code&gt; has a &lt;code&gt;CancellationToken&lt;/code&gt; called &lt;code&gt;ApplicationStopping&lt;/code&gt;, that I could wait on for the &lt;code&gt;SIGINT&lt;/code&gt; or &lt;code&gt;SIGTERM&lt;/code&gt; that systemd sends to restart the service.&lt;/p&gt;
+&lt;p&gt;The end of the main &lt;code&gt;Program.cs&lt;/code&gt; now looks like&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-csharp"&gt;...
+
+app.UseWebsockets();
+
+var shutdownTask = Task.Run(async () =&amp;gt;
+{
+    app.Lifetime.ApplicationStopping.WaitHandler.WaitOne();
+    await WebsocketController.Topics.Shutdown();
+});
+
+app.Run();
+
+await shutdownTask;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The &lt;code&gt;shutdownTask&lt;/code&gt; runs before the blocking call to &lt;code&gt;app.Run()&lt;/code&gt;, with &lt;code&gt;WaitHandle.WaitOne()&lt;/code&gt; blocking the task until &lt;code&gt;SIGINT&lt;/code&gt; or &lt;code&gt;SIGTERM&lt;/code&gt; has been received. At this point each of the client connections are sent a shutdown error message and are disconnected.&lt;/p&gt;
+&lt;p&gt;The disconnect code is roughly&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-csharp"&gt;public static async Task Shutdown(this ConcurrentDictionary&amp;lt;string, Topic&amp;gt; topics)
+{
+    var clients = topics.Values.SelectMany(topic =&amp;gt; topic.Clients).ToList();
+    
+    foreach (var (id, ws) in clients)
+    {
+        try
+        {
+            await ws.SendMessage(new ErrorModel(&amp;quot;Server shutting down&amp;quot;));
+            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, &amp;quot;Connection closed&amp;quot;, CancellationToken.None);
+            Console.WriteLine($&amp;quot;Disconnected {id}&amp;quot;);
+        }
+        catch
+        {
+            // client may already have disconnected since calling Shutdown
+            // do nothing
+        }
+    }
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;code&gt;Shutdown&lt;/code&gt; is a static extension method called on the &lt;code&gt;ConcurrentDictionary&lt;/code&gt; of topics.&lt;/p&gt;
+&lt;p&gt;I collect the client connections into a list at the start of the function to avoid iterating through the collection as it's being modified, as the disconnecting clients get removed from the &lt;code&gt;ConcurrentDictionary&lt;/code&gt; by the websocket handler as they disconnect. I also wrap each disconnect in a try/catch block to ensure that issues disconnecting one client won't affect disconnecting other clients.&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;WebSocket.SendMessage&amp;lt;T&amp;gt;&lt;/code&gt; is another extension method that serialises a model, converts the json string to bytes, and sends it to over the websocket connection.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-csharp"&gt;public static async Task SendMessage&amp;lt;T&amp;gt;(this WebSocket websocket, T model, CancellationToken token = default)
+{
+    var json = JsonSerializer.Serialize(model);
+    var bytes = Encoding.UTF8.GetBytes(json);
+    await websocket.SendAsync(bytes, WebSocketMessageType.Text, endOfMessage: true, token);
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id="conclusion"&gt;Conclusion&lt;/h2&gt;
+&lt;p&gt;This solution seems to work pretty well for my use case, and means I can update and restart my service without it hanging for over a minute.&lt;/p&gt;
+&lt;p&gt;I could set off all the disconnects at once and collect a list of tasks to await with &lt;code&gt;Task.WhenAll&lt;/code&gt;, but given this project was for a small audience, it's unlikely to need to disconnect a large number of clients and taking a few seconds to shut down is entirely acceptable.&lt;/p&gt;
+&lt;p&gt;I'm sure there are more correct ways to do handle the shutdown event too, but given this isn't a production-grade application and wasn't being written for a client I'm happy enough with how it works.&lt;/p&gt;
+</content:encoded>
+			<comments xmlns="http://purl.org/rss/1.0/modules/slash/">0</comments>
+		</item>
+		<item>
+			<title>My hosting setup</title>
+			<link>https://robanderson.dev/blog/hosting-setup.html</link>
+			<description>Securing access to Ubuntu Server with Tailscale and Cloudflare Tunnels</description>
+			<guid>https://robanderson.dev/blog/hosting-setup</guid>
+			<pubDate>Wed, 30 Apr 2025 00:00:00 GMT</pubDate>
+			<content:encoded>&lt;p&gt;This is a short(ish) blog post about how I secure my server and VPS to host websites without a static IP or port forwarding. I make use of Tailscale and SSH to manage them, and Cloudflare Tunnels to share specific services publicly.&lt;/p&gt;
+&lt;p&gt;Programming is my job but managing and securing servers isn't, so take everything here with a pinch of salt.&lt;/p&gt;
+&lt;h2 id="ubuntu-server"&gt;Ubuntu Server&lt;/h2&gt;
+&lt;p&gt;My home server and my VPS both run Ubuntu Server 24.04. I've found it to be reliable and reasonably easy to use, with drivers for every bit of hardware I've thrown at it.&lt;/p&gt;
+&lt;h3 id="history"&gt;History&lt;/h3&gt;
+&lt;p&gt;I've been using Ubuntu Server since building my first home server with my dad in 2011; with a (wonderfully cheap) dual-core AMD Athlon II 255 X2 and 2GB of RAM.&lt;/p&gt;
+&lt;p&gt;Learning to manage my server through SSH rather than using a desktop environment took a while to adapt to, but having some familiarity with the terminal has definitely paid off over the years - especially since I started working as a software developer.&lt;/p&gt;
+&lt;p&gt;Static IPs aren't very common for UK ISPs, so from 2015 I was using DuckDNS for dynamic DNS. The downside with DuckDNS was that if my IP changed it'd take 5 minutes for the DNS record to update, and I was only able to point subdomains at my &lt;code&gt;*.duckdns.org&lt;/code&gt; domains, as I was using &lt;code&gt;CNAME&lt;/code&gt; records rather than &lt;code&gt;A&lt;/code&gt; records that require a fixed IP address.&lt;/p&gt;
+&lt;p&gt;I experimented with lots of different ways to secure my home server while keeping it accessible from outside the house; alternative ports, port knocking, increasingly long RSA keys, and fail2ban. It was kind of satisfying seeing so many banned IP addresses, but indicative of just how many bots there are online constantly trying to break into anything accessible online.&lt;/p&gt;
+&lt;p&gt;In 2022 I started using Tailscale, and stopped exposing SSH and internal web services through my router's firewall. Tailscale has been incredibly easy to set up and use compared to some other VPN solutions; I used OpenVPN for a number of years, but felt like I was starting from scratch reading through documentation any time I needed to renew client or server certificates.&lt;/p&gt;
+&lt;p&gt;I also discovered Cloudflare tunnels less than a year ago, and have quickly become a fan. I can expose a specific port on my server through Cloudflare, benefiting from their DDOS protection, static asset caching, and custom firewall rules to limit requests per second and block common crawlers attempting to find a Wordpress or PHP administration endpoint.&lt;/p&gt;
+&lt;h2 id="ssh"&gt;SSH&lt;/h2&gt;
+&lt;p&gt;SSH is the standard protocol for remote shell access, and also allows for file transfer using SCP, SFTP, or RSYNC.&lt;/p&gt;
+&lt;p&gt;I've disabled password and root login, requiring an SSH key and 2FA code to log in. The 2FA can be a bit of a pain, but took enough time to set up that I don't really want to disable it now. If I were to start from scratch with SSH, I'd probably use Tailscale SSH, where Tailscale handles the auth.&lt;/p&gt;
+&lt;h3 id="setting-up-an-ssh-key"&gt;Setting up an SSH key&lt;/h3&gt;
+&lt;p&gt;Setting up an SSH key is easy enough, using this command taken from &lt;a href="https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent"&gt;one of GitHub's setup guides&lt;/a&gt;.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;ssh-keygen -t ed25519 -C "your comment here"
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;As mentioned in the GitHub article, using a password means your key can't easily be used if accidentally leaked, and adding your key to &lt;code&gt;ssh-agent&lt;/code&gt; means you don't have to type in the password every time you use the key.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;ssh-add .ssh/key-name-here
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;An SSH config file can be set up to add aliases to servers, though if you've got consistent usernames across servers and SSH keys in &lt;code&gt;ssh-agent&lt;/code&gt; there's not too much benefit. Tailscale allows connecting via hostnames too.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;ssh vps
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;I do have some config to connect to my home server using its local IP address if I'm on my local network, but I don't know if that's particularly good practice&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-text"&gt;Match host adele exec "nc -z 192.168.x.x 22 -G 1"
+  Hostname 192.168.x.x
+Host adele
+  Hostname 100.x.x.x
+  User rob
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id="configuring-the-ssh-service"&gt;Configuring the SSH service&lt;/h3&gt;
+&lt;p&gt;In order to use your new SSH key on Ubuntu Server, you'll need to copy the public key (*.pub) to your server.&lt;/p&gt;
+&lt;p&gt;The contents of the public key should be pasted into &lt;code&gt;.ssh/authorized_keys&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;Then you can edit &lt;code&gt;/etc/ssh/sshd_config&lt;/code&gt; to disable root login and require key-based logins.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-text"&gt;PermitRootLogin no
+PubkeyAuthentication yes
+PasswordAuthentication no
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h4 id="fa"&gt;2FA&lt;/h4&gt;
+&lt;p&gt;As mentioned a few paragraphs above I also have 2FA enabled on my server and VPS using &lt;code&gt;libpam-google-authenticator&lt;/code&gt;. &lt;a href="https://documentation.ubuntu.com/server/how-to/security/two-factor-authentication-with-totp-or-hotp/"&gt;This guide&lt;/a&gt; should help if you choose to do the same.&lt;/p&gt;
+&lt;p&gt;This does require enabling PAM and &lt;code&gt;KbdInteractiveAuthentication&lt;/code&gt; in your &lt;code&gt;sshd_config&lt;/code&gt;, and there's some additional faffage you can do to add a whitelist of IP addresses that don't need to enter the 2FA code, but I don't recommend it.&lt;/p&gt;
+&lt;h2 id="tailscale"&gt;Tailscale&lt;/h2&gt;
+&lt;p&gt;Tailscale is pretty magic, taking the open source software Wireguard and making it &lt;em&gt;almost&lt;/em&gt; zero-config.&lt;/p&gt;
+&lt;p&gt;For a server I'd recommend authenticating by generating an Auth key through the &lt;code&gt;Settings&lt;/code&gt; section of the Tailscale web console, and disabling node key expiry for the device.&lt;/p&gt;
+&lt;p&gt;Setting your server up as an exit node in Tailscale allows you channel all of your internet traffic through your home server while you're travelling too - very handy for accessing geo-locked content from abroad.&lt;/p&gt;
+&lt;p&gt;Since starting to use Tailscale, I've used it on a project at work and received some very positive feedback from colleagues.&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;"nice one, that was by far the least painful VPN setup i've experienced"&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;blockquote&gt;
+&lt;p&gt;"tailscale is literally magic"&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="firewall"&gt;Firewall&lt;/h2&gt;
+&lt;p&gt;I probably don't need to worry so much about my Firewall, but I guess there's a chance a rogue IoT device starts trying to poke around my network, and it only takes a couple of minutes to set up.&lt;/p&gt;
+&lt;p&gt;Add &lt;code&gt;ssh&lt;/code&gt; to &lt;code&gt;ufw&lt;/code&gt; and enable it&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;sudo ufw allow ssh
+sudo ufw enable
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;I also have ports open on my home server for Samba so I can access my network shares across my local network.&lt;/p&gt;
+&lt;p&gt;My ISP provided router doesn't have any ports open, and I don't allow any incoming traffic to my Hetzner VPS.&lt;/p&gt;
+&lt;h2 id="cloudflare-tunnels"&gt;Cloudflare tunnels&lt;/h2&gt;
+&lt;p&gt;Cloudflare tunnels are also pretty magic.&lt;/p&gt;
+&lt;p&gt;I have one tunnel set up to my home server hosting multiple domains/subdomains, and one set up to my VPS hosting my wedding website.&lt;/p&gt;
+&lt;p&gt;I had some issues getting multiple unrelated domains working one tunnel when I was using the Cloudflare CLI tool trying to set everything up myself, but once I switched to the online config tool everything went together pretty quickly.&lt;/p&gt;
+&lt;p&gt;Each service runs on whatever port I configure it to run on, and I can choose what port to expose it on with Cloudflare.&lt;/p&gt;
+&lt;p&gt;E.g. I have a websocket-based puzzle running locally on port 5293, but Cloudflare exposes it on port 443 and provides the TLS certificate too so I don't have to bother with LetsEncrypt anymore.&lt;/p&gt;
+&lt;p&gt;I have generic rules set in Cloudflare to block &lt;code&gt;*.php&lt;/code&gt; and &lt;code&gt;*wp-*&lt;/code&gt; and also block any requests without a user agent. Along with a blanket 10 requests per second limit I'm able to get Cloudflare to drop most traffic before it hits my server.&lt;/p&gt;
+&lt;p&gt;E.g. In the screenshots below you can see that Cloudflare prevented 2600 requests from reaching my wedding website hosted on my VPS in 24 hours with just three rules.&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://robanderson.dev/blog/images/cloudflare-requests.png" alt="Web traffic statistics showing 2.6k out of 2.78k requests have been mitigated"&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://robanderson.dev/blog/images/cloudflare-rules.png" alt="The 3 custom rules blocking PHP requests, requests without a user agent, and Wordpress requests"&gt;&lt;/p&gt;
+&lt;h2 id="hetzner"&gt;Hetzner&lt;/h2&gt;
+&lt;p&gt;Most of the cloud experience I have has been with AWS, or occasionally Azure on specific clients. I initially planned on using EC2 to host one of the websites I've been running, but quickly found that the price quoted on the &lt;a href="https://aws.amazon.com/ec2/pricing/on-demand/"&gt;EC2 pricing page&lt;/a&gt; ($3.38 per month for a t4g.nano instance) didn't include the cost of an IPv4 address, which adds an extra $3.60 per month.&lt;/p&gt;
+&lt;p&gt;$6.98 works out to about £5.40 per month at the time of writing, and the t4g.nano instance only comes with 0.5GB of RAM - scaling up to 4GB increases the monthly cost (with IPv4) to $30.67 per month. There's also a little extra cost for EBS, as the minimum disk size required for EC2 is 8GB.&lt;/p&gt;
+&lt;p&gt;A friend at work suggested checking out Hetzner, as they'd been using it for a while and enjoyed the experience. An ARM VPS with 2 vCPU cores, 4GB of RAM, and 40GB of storage for €4.55 per month, or €3.95 per month for an IPv6-only instance. At the time of writing this works out to £3.31 per month.&lt;/p&gt;
+&lt;p&gt;There's a limit of 20TB of traffic per month for free on the Hetzner instance, but the amount of data per month I'm using is under 10GB so that's not an issue.&lt;/p&gt;
+&lt;h3 id="ipv6-only"&gt;IPv6 only&lt;/h3&gt;
+&lt;p&gt;The primary reason for disabling IPv4 on my Hetzner VPS was cost. With IPv4 enabled the instance costs €4.55 per month, this can be reduced to €3.95 if you're willing to connect with IPv6 only.&lt;/p&gt;
+&lt;p&gt;Some ISPs in the UK still don't support IPv6, but because I'm using CloudFlare tunnels to hide the IP address of the VPS from end users, they'll connect to Cloudflare which will handle all the traffic.&lt;/p&gt;
+&lt;p&gt;I'll be connecting to the VPS using Tailscale too, so I shouldn't ever be in a position where I can't connect to fix any potential production issues.&lt;/p&gt;
+&lt;h4 id="fix-for-cloudflare"&gt;Fix for Cloudflare&lt;/h4&gt;
+&lt;p&gt;After installing the &lt;code&gt;cloudflared&lt;/code&gt; service, it seemed to be hanging, checking the status of the service with &lt;code&gt;systemctl status cloudflared&lt;/code&gt; confirmed that it wasn't starting successfully.&lt;/p&gt;
+&lt;p&gt;It turned out that the service defaults to connecting to Cloudflare's servers using an IPv4 address. It took a while to find a fix, but it turns out you can change the command &lt;code&gt;cloudflared&lt;/code&gt; launches with to enable IPv6.&lt;/p&gt;
+&lt;p&gt;Edit the &lt;code&gt;cloudflared&lt;/code&gt; service with &lt;code&gt;systemctl edit --full cloudflared.service&lt;/code&gt;, adding &lt;code&gt;--edge-ip-version 6&lt;/code&gt; to the &lt;code&gt;ExecStart&lt;/code&gt; line.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-text"&gt;ExecStart=/usr/bin/cloudflared --no-autoupdate tunnel --edge-ip-version 6 run --token eyJ...
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id="hosting-services"&gt;Hosting services&lt;/h2&gt;
+&lt;p&gt;Despite using Docker for a few different client projects at work, I tend to just use &lt;code&gt;systemd&lt;/code&gt; services for all the projects I host myself.&lt;/p&gt;
+&lt;p&gt;In order to host a .Net service with limited RAM and CPU cores, this is (roughly) my config - saved as &lt;code&gt;/usr/lib/systemd/system/&amp;lt;project&amp;gt;.service&lt;/code&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-text"&gt;[Unit]
+Description=&amp;lt;project&amp;gt; web service
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/rob/code/&amp;lt;project&amp;gt;/bin/Release/net9.0/publish
+ExecStart=/usr/bin/dotnet /home/rob/code/&amp;lt;project&amp;gt;/bin/Release/net9.0/publish/&amp;lt;project&amp;gt;.dll
+Restart=always
+RestartSec=10
+KillSignal=SIGINT
+SyslogIdentifier=dotnet-&amp;lt;project&amp;gt;
+User=rob
+Environment=ASPNETCORE_ENVIRONMENT=Production
+CPUQuota=200%
+MemoryHigh=3G
+MemoryMax=4G
+
+[Install]
+WantedBy=multi-user.target
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Here the service is limited to taking up 2 full CPU cores, and a maximum of 4GB of RAM, with some throttling at 3GB used. If the server crashes, it'll automatically restart itself after 10 seconds.&lt;/p&gt;
+&lt;p&gt;The service can be enabled and started with&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;sudo systemctl enable &amp;lt;project&amp;gt;.service
+sudo systemctl start &amp;lt;project&amp;gt;.service
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;After which it will start automatically at boot.&lt;/p&gt;
+&lt;p&gt;I can check the live logs of my service using &lt;code&gt;sudo journalctl -u &amp;lt;project&amp;gt;.service -f&lt;/code&gt;, or check today's logs with &lt;code&gt;sudo journalctl -u &amp;lt;project&amp;gt;.service --since today&lt;/code&gt;.&lt;/p&gt;
+&lt;h2 id="final-words"&gt;Final words&lt;/h2&gt;
+&lt;p&gt;This is as much documentation to future-me as it is a guide to anyone interested. It's been written a little hastily, but at least it's all written by me rather than an LLM.&lt;/p&gt;
+</content:encoded>
+			<comments xmlns="http://purl.org/rss/1.0/modules/slash/">0</comments>
+		</item>
+		<item>
+			<title>6 months with the Dell PowerEdge T160</title>
+			<link>https://robanderson.dev/blog/dell-t160.html</link>
+			<description>6 month review of the Dell PowerEdge T160</description>
+			<guid>https://robanderson.dev/blog/dell-t160</guid>
+			<pubDate>Tue, 11 Feb 2025 00:00:00 GMT</pubDate>
+			<content:encoded>&lt;p&gt;&lt;a href="https://www.dell.com/en-uk/shop/ipovw/poweredge-t160"&gt;&lt;img src="https://robanderson.dev/blog/images/dell-t160.png" alt="Dell PowerEdge T160"&gt;&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="tldr"&gt;TL;DR&lt;/h2&gt;
+&lt;p&gt;My &lt;a href="https://www.dell.com/en-uk/shop/ipovw/poweredge-t160"&gt;Dell T160&lt;/a&gt; is a very capable small server, and will be more than powerful enough for me for several years. It's reasonably quiet, doesn't use too much power, and it's tool-less design is well-thought-out.&lt;/p&gt;
+&lt;p&gt;The server arrived significantly faster than expected, and the packaging meant it arrived in perfect condition.&lt;/p&gt;
+&lt;p&gt;Installing Ubuntu Server was easy, though I did have to go hunting through my loft for a VGA cable to connect to a monitor.&lt;/p&gt;
+&lt;p&gt;My main frustrations have been with the lack of hard drive caddies that came with my server, despite upgrading the chassis to support three HDDs and two SSDs. I've been unable to buy any from Dell or the reseller I was eventually given the email address for, so had to buy and modify some cheap 3.5-inch caddies from Ebay.&lt;/p&gt;
+&lt;h2 id="why-did-i-buy-a-home-server"&gt;Why did I buy a home server?&lt;/h2&gt;
+&lt;p&gt;I bought my Gen8 HP MicroServer in 2015 and for 9 years it served me well. It wasn't particularly fast, running an Intel Celeron G1610T with 4GB of DDR3 RAM, but was a very capable NAS able to saturate gigabit ethernet when transferring files across my local network. It also cost me £115 after cashback when HP were busy selling off old stock while they rebranded to HPE. (thanks!)&lt;/p&gt;
+&lt;p&gt;&lt;a href="https://support.hpe.com/hpesc/public/docDisplay?docId=c03793258&amp;amp;page=GUID-773FBBD8-8BD2-4C04-BA2B-055BA390D650.html"&gt;&lt;img src="https://robanderson.dev/blog/images/hp-ms-gen8.png" alt="HP MicroServer Gen8"&gt;&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;I had a boot SSD resting in one of the drive bays, and two 2TB drives in RAID 1 in two of the others; more than enough to back up my desktop and laptop as I don't any ripped films or music. Spotify and Netflix have made my storage requirements much less than they could have been.&lt;/p&gt;
+&lt;p&gt;I could have upgraded the RAM pretty cheaply, but the CPU was a little tricker. Compatible low-power Xeon processors were difficult to find online in the UK, and compatible Core i3's didn't offer much of a performance boost.&lt;/p&gt;
+&lt;p&gt;For more demanding compute-based workloads, I had repurposed an Intel NUC with a Core i5-8259U and 16GB of DDR4 RAM. I was primarily running a service to track rainfall and river levels across Northumberland, and was finding that trying to train predictive models was taking an order of magnitude longer on the MicroServer than on my old laptop.&lt;/p&gt;
+&lt;p&gt;The NUC handled this very well, but the urge to spend money I didn't need to spend was creeping in after a long period of not splashing out. I wanted to be able to run a few websites, serve as a central point for my backups, and do quick predictions of river levels a few times per day.&lt;/p&gt;
+&lt;h3 id="why-didnt-i-build-a-new-server"&gt;Why didn't I build a new server?&lt;/h3&gt;
+&lt;p&gt;I'd been considering building a home server for a few years, but always found that server-grade motherboards were £400+, and anything as compact as my MicroServer was going to be tricky to put together cheaper than just buying a new server.&lt;/p&gt;
+&lt;p&gt;The announcement of the AMD EPYC 4004 series processors piqued my interest, but again &lt;a href="https://www.scan.co.uk/products/asrock-b650d4u-amd-b650-s-am5-ddr5-sata3-pcie-50-2x-m2-gbe-usb-32-gen1-micro-atx"&gt;the motherboards were limited and expensive&lt;/a&gt;, and it would appear that 6 months later there are still only &lt;a href="https://www.scan.co.uk/shop/computer-hardware/cpu-amd-server/amd-epyc-4004-series-zen-4-1p-socket-am5-server-processor#visible=0"&gt;a couple of models available&lt;/a&gt; at a higher retail price than AMD initially suggested.&lt;/p&gt;
+&lt;p&gt;This is the motherboard I was considering&lt;/p&gt;
+&lt;p&gt;&lt;a href="https://www.scan.co.uk/products/asrock-b650d4u-amd-b650-s-am5-ddr5-sata3-pcie-50-2x-m2-gbe-usb-32-gen1-micro-atx"&gt;&lt;img src="https://robanderson.dev/blog/images/epyc-4004-motherboard.png" alt="AsRock B650D4U motherboard on Scan"&gt;&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;Here are the (still not available CPUs)&lt;/p&gt;
+&lt;p&gt;&lt;a href="https://www.scan.co.uk/shop/computer-hardware/cpu-amd-server/amd-epyc-4004-series-zen-4-1p-socket-am5-server-processor"&gt;&lt;img src="https://robanderson.dev/blog/images/scan-epyc-4004-cpus.png" alt="EPYC 4004 processors on Scan"&gt;&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;And the initially advertised CPU prices&lt;/p&gt;
+&lt;p&gt;&lt;a href="https://www.phoronix.com/review/amd-epyc-4124p"&gt;&lt;img src="https://robanderson.dev/blog/images/epyc-4004-pricing.png" alt="EPYC 4004 prices from Phoronix"&gt;&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="which-server-to-buy"&gt;Which server to buy?&lt;/h3&gt;
+&lt;p&gt;I had a few thoughts about which server to buy; there were some refurbished servers available online but most weren't discounted a huge amount, and I was struggling to justify spending over £500 for a large, loud server with DDR3 or DDR4 memory.&lt;/p&gt;
+&lt;p&gt;A new Gen11 or Gen10 plus v2 (?) HPE MicroServer would have been a good shout, but at the time I committed to the T160 they still weren't generally available in the UK, and were a little more expensive for comparable specs. The Gen10 plus v2 would have been a better choice, but it's difficult not to buy the latest and greatest when it's only a smidge more expensive.&lt;/p&gt;
+&lt;p&gt;&lt;a href="https://buy.hpe.com/uk/en/compute/proliant-microserver/proliant-microserver/proliant-microserver/hpe-proliant-microserver-gen11/p/1014826370"&gt;&lt;img src="https://robanderson.dev/blog/images/hpe-ms-gen11.png" alt="HPE MicroServer Gen11"&gt;&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;The Dell eventually won me over, and at this point I just assume it was the price for the specs I was buying.&lt;/p&gt;
+&lt;h2 id="the-spec"&gt;The spec&lt;/h2&gt;
+&lt;p&gt;I configured one of the "Value" offerings to have an Intel Xeon E-2434, and 32GB of ECC DDR5 memory. I chose the cheapest HDD I could find - a 2TB Seagate drive and upgraded the chassis to a 500W power supply and to support five internal SATA drives; two 2.5-inch drives and three 3.5-inch drives.&lt;/p&gt;
+&lt;p&gt;The total price ended up being £1320 including VAT, which I still think was pretty good value.&lt;/p&gt;
+&lt;h2 id="teething-problems"&gt;Teething problems&lt;/h2&gt;
+&lt;p&gt;As mentioned in the TL;DR, the primary issue I've had with the dell has been with the lack of supplied disk caddies, my inability to buy them from Dell or resellers, and the lack of transparency when buying the server that a chassis supporting five drives only comes with one caddy for the supplied overpriced drive.&lt;/p&gt;
+&lt;p&gt;I ended up having to buy caddies from Ebay, and filing some of the plastic at the bottom of them in order to make them fit into the T160.&lt;/p&gt;
+&lt;p&gt;Two caddies for £10 was a pretty good deal, it's just a shame I mangled them and my 2.5-inch SSD is still just floating in the slot where I'd put a caddy if only I had one.&lt;/p&gt;
+&lt;p&gt;&lt;a href="https://www.ebay.co.uk/itm/185586553971"&gt;&lt;img src="https://robanderson.dev/blog/images/caddies.png" alt="Dell OptiPlex caddies"&gt;&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;I was also expecting some additional features in the free version of iDRAC, like the ability to track power usage without relying on a smart plug.&lt;/p&gt;
+&lt;h2 id="i-should-have-just-moved-to-the-cloud"&gt;I should have just moved to the cloud&lt;/h2&gt;
+&lt;p&gt;Due to semi-regular short power-cuts where I live, my broadband connection isn't really reliable to host any website that I want more than two nines of availability.&lt;/p&gt;
+&lt;p&gt;I've recently starting paying for a little VPS from Hetzner, which is costing me €3.95 per month (including VAT). It only has 2 cores, 4GB of RAM, and a 40GB SSD on a shared host, but it's a lot more reliable than anything hosted at home, and connected to a much faster network.&lt;/p&gt;
+&lt;p&gt;I could have got an 8 core VPS with 16GB of RAM and a 160GB SSD for €14.39, and run it for 110 months (at the current exchange rate) and I'd still end up better off because I wouldn't be paying for the electricity.&lt;/p&gt;
+&lt;p&gt;I already encrypt and back up my files to another cloud backup service, so going fully cloud would have generally been a good idea, aside from losing my NAS. Storing large files on my home server does allow me to use reasonably small SSDs in my laptop and desktop PC, and just rely on the 1Gb/s read speeds I get from my network shares.&lt;/p&gt;
+&lt;p&gt;There's no conclusion here; I like having a home server, though it was probably a little bit of a waste of money.&lt;/p&gt;
+</content:encoded>
+			<comments xmlns="http://purl.org/rss/1.0/modules/slash/">0</comments>
+		</item>
+		<item>
+			<title>Modbus RTU with a Raspberry Pi</title>
+			<link>https://robanderson.dev/blog/pi-modbus.html</link>
+			<description>Setting up a Raspberry pi to connect to devices using Modbus RTU</description>
+			<guid>https://robanderson.dev/blog/pi-modbus</guid>
+			<pubDate>Mon, 06 Jan 2025 00:00:00 GMT</pubDate>
+			<content:encoded>&lt;h2 id="preamble"&gt;Preamble&lt;/h2&gt;
+&lt;p&gt;On a now-not-so-recent client project I was tasked with developing an IoT device capable of communicating with devices via Modbus RTU. I hadn't heard of Modbus before starting this project, so I tried to prepare myself for a steep learning curve.&lt;/p&gt;
+&lt;p&gt;I found a number of blog posts, tutorials, and stackoverflow answers when looking at how to interface with Modbus devices, but the documentation I used was very fragmented. This guide serves more as all-in-one documentation to my future self, and to anyone wanting to try to solve a similar problem; hopefully this post will help someone to avoid the same issues I ran into and had to figure out a way round.&lt;/p&gt;
+&lt;h2 id="hardware-and-software"&gt;Hardware and software&lt;/h2&gt;
+&lt;p&gt;The &lt;a href="https://www.raspberrypi.com/products/raspberry-pi-4-model-b/"&gt;Raspberry Pi 4&lt;/a&gt; was chosen as the prototyping device due to great documentation, a long support period, reasonably low cost, and good availability. &lt;a href="https://ubuntu.com/download/raspberry-pi"&gt;Ubuntu Server&lt;/a&gt; 22.04 was chosen as the operating system as I'm reasonably comfortable with Ubuntu having used it on laptops and home servers for several years now, and it also has a long support period.
+Long term support is probably less important for a prototyping device than for a production device, but a well-supported development platform makes life easier for any future developers who could be working on this project.&lt;/p&gt;
+&lt;p&gt;After a little research, I discovered that Modbus RS485 to UART adapters were reasonably cheap, and simple enough to solder and connect up to the Raspberry Pi. I bought a &lt;a href="https://www.amazon.co.uk/dp/B0B3MXPH3Y"&gt;pack of 6 adapters from Amazon&lt;/a&gt;, and while they now seem to be unavailable, there are many other similar ones priced around £1 per adapter. The design seems to be based on &lt;a href="https://joy-it.net/en/products/COM-TTL-RS485"&gt;this adapter from Joy-IT&lt;/a&gt;, who provide very good documentation.&lt;/p&gt;
+&lt;p&gt;My original prototype was written with Python, as it's a language I'm fond of and have a fair bit of experience with. However, at the time there weren't many Python developers available at work so primarily due to availability and ease of onboarding I decided to proceed with Typescript as the language we'd build the product with.
+The examples I'll show will use Javascript to demonstrate how to connect and request registers over Modbus RTU as all of our internal testing scripts have been written as Javascript modules.&lt;/p&gt;
+&lt;h2 id="configuring-the-raspberry-pi"&gt;Configuring the Raspberry Pi&lt;/h2&gt;
+&lt;h3 id="configuring-for-uart"&gt;Configuring for UART&lt;/h3&gt;
+&lt;p&gt;Ubuntu Server 22.04 on the Raspberry Pi ships with UART enabled, but by default there is a login terminal running for serial TTY on the two UART used here to connect to the RS485 adapter. This can be disabled by disabling the &lt;code&gt;serial-getty&lt;/code&gt; service, and removing the console config from &lt;code&gt;/boot/firmware/cmdline.txt&lt;/code&gt;.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;sudo systemctl stop serial-getty@ttyS0.service
+sudo systemctl disable serial-getty@ttyS0.service
+sudo systemctl mask serial-getty@ttyS0.service
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;sudo nano /boot/firmware/cmdline.txt
+# remove `console=serial0,115200` from the start of the line
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Ubuntu Server 22.04 also seems to have Bluetooth running on the UART interface by default, so a line of config can be added to &lt;code&gt;/boot/firmware/config.txt&lt;/code&gt; to allow both UART and Bluetooth to operate at the same time.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;sudo nano /boot/firmware/config.txt
+# ensure `enable_uart=1` is present in the file
+# add `dtoverlay=miniuart-bt` after the `enable_uart` line
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Now we can give the current user permissions to use UART via the TXD and RXD pins.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;sudo adduser rob tty
+sudo adduser rob dialout
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Once connected, the Modbus adapter can be communicated with using the path &lt;code&gt;/dev/ttyAMA0&lt;/code&gt;, with whatever baud rate is configured on the device being connected to. The Modbus adapter I'm using handles CTS/RTS automatically with a small capacitor, which made this device a lot easier to use with the Raspberry Pi than other adapters I was trying out.&lt;/p&gt;
+&lt;h3 id="wiring-up-the-adapter"&gt;Wiring up the adapter&lt;/h3&gt;
+&lt;p&gt;I got help from a more capable colleague to solder &lt;a href="https://www.amazon.co.uk/dp/B01461DQ6S"&gt;90º pins&lt;/a&gt; onto the RS485 adapter to make it easier to attach cables to the GPIO headers on the Raspberry Pi. A cheap &lt;a href="https://www.amazon.co.uk/dp/B001BMSBD4"&gt;helping hand tool with a magnifying glass&lt;/a&gt; made this a lot easier to solder.&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://robanderson.dev/blog/images/RS485-UART-adapter.jpeg" alt="Modbus RS485 to UART adapter"&gt;&lt;/p&gt;
+&lt;p&gt;The wiring to the Raspberry Pi can now be done using some cheap &lt;a href="https://thepihut.com/products/thepihuts-jumper-bumper-pack-120pcs-dupont-wire"&gt;Dupont wires&lt;/a&gt;.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;The &lt;code&gt;VCC&lt;/code&gt; pin on the adapter connected to one of the 5V pins on the Pi (pin 2 or 4)&lt;/li&gt;
+&lt;li&gt;The &lt;code&gt;TXD&lt;/code&gt; pin on the adapter connected to the TXD pin on the Pi (pin 8/GPIO 14)&lt;/li&gt;
+&lt;li&gt;The &lt;code&gt;RXD&lt;/code&gt; pin on the adapter connected to the RXD pin on the Pi (pin 10/GPIO 15)&lt;/li&gt;
+&lt;li&gt;The &lt;code&gt;GND&lt;/code&gt; pin on the adapter connected to one of the ground pins on the Pi (I used pin 6)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;img src="https://robanderson.dev/blog/images/rs485-pi.drawio.png" alt="RS485 adapter to Raspberry Pi wiring"&gt;&lt;/p&gt;
+&lt;p&gt;The A+ pin on the adapter can then be wired up to the +5V pin on whatever modbus device is being communicated with, and the B- to the -5V pin.&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;I've used standard British wire colours for power/live (brown) and the ground (yellow/green), then just made up the rest of the colours for the rest of the pins because why not.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="reading-modbus-registers"&gt;Reading Modbus registers&lt;/h2&gt;
+&lt;h3 id="installing-requirements"&gt;Installing requirements&lt;/h3&gt;
+&lt;p&gt;First, Node.js will need to be installed on the Raspberry Pi. The version included in &lt;code&gt;apt&lt;/code&gt; on Ubuntu is pretty old, so the &lt;a href="https://deb.nodesource.com/"&gt;following instructions&lt;/a&gt; are for installing Node 20.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install nodejs
+
+# check installed version
+node --version
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Now we can install a library to work with the data being sent and received via the UART pins.&lt;/p&gt;
+&lt;p&gt;I have been using &lt;a href="https://www.npmjs.com/package/modbus-serial"&gt;modbus-serial&lt;/a&gt; to work with the Modbus devices on my client project with no issues. It uses &lt;a href="https://www.npmjs.com/package/serialport"&gt;serialport&lt;/a&gt; under the hood, with dedicated instructions for reading from holding and input registers, and for writing one or more registers too. It also seems to be reasonably actively maintained (at the time of writing).&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;npm install modbus-serial
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id="running-the-code"&gt;Running the code&lt;/h3&gt;
+&lt;p&gt;As an example, I'm going to read the current battery percentage from a &lt;a href="https://www.solaxpower.com/products/x1-hybrid-g4/"&gt;Solax X1 Hybrid G4&lt;/a&gt; using a Javascript module &lt;code&gt;test-modbus.mjs&lt;/code&gt;. The battery percentage is an input register at address &lt;code&gt;0x1C&lt;/code&gt;.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-javascript"&gt;import ModbusRTU from 'modbus-serial';
+
+async function run() {
+    const client = new ModbusRTU();
+
+    // set the client ID to 1 (as configured on the Solax)
+    client.setID(1);
+
+    // set the timeout to 10 seconds
+    client.setTimeout(10000);
+
+    // connect via the UART pins, with a baud rate of 19200 bps (as configured on the Solax)
+    await client.connectRTUBuffered('/dev/ttyAMA0', {baudRate: 19200});
+    
+    // read the battery percentage from the input registers and log out the result
+    const buffer = await client.readInputRegisters(0x1c, 1);
+    const percentage = buffer.data[0];
+    console.log(`Battery is at ${percentage}%`);
+}
+
+run();
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;This can then be run with&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;node test-modbus.mjs
+# prints: Battery is at 84%
+&lt;/code&gt;&lt;/pre&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Sometimes it's useful to see what bytes are being sent via Modbus RTU, so debugging in the &lt;code&gt;modbus-serial&lt;/code&gt; library can be enabled by setting the &lt;code&gt;DEBUG&lt;/code&gt; environment variable to &lt;code&gt;modbus*&lt;/code&gt;: &lt;code&gt;DEBUG=modbus* node test-modbus.mjs&lt;/code&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;By debugging the &lt;code&gt;modbus-serial&lt;/code&gt; library we can see that the buffer sent over the serial UART connection is &lt;code&gt;01 04 00 1c 00 01 f0 0c&lt;/code&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-text"&gt;01      client ID
+04      read input register(s) function code
+00 1c   starting register
+00 01   number of registers to read
+f0 0c   crc16 checksum
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;If I were just using the &lt;code&gt;Serialport&lt;/code&gt; library without &lt;code&gt;modbus-serial&lt;/code&gt;, I'd have to construct this payload myself to send it to the Modbus device.&lt;/p&gt;
+&lt;p&gt;The response to this request would be &lt;code&gt;01 04 02 00 54 b8 cf&lt;/code&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-text"&gt;01      client ID
+04      read input register(s) function code
+02      number of bytes in response
+00 54   decimal value 84
+b8 cf   crc16 checksum
+&lt;/code&gt;&lt;/pre&gt;
+</content:encoded>
+			<comments xmlns="http://purl.org/rss/1.0/modules/slash/">0</comments>
+		</item>
+		<item>
+			<title>Using NGINX and Certbot to host an Express server</title>
+			<link>https://robanderson.dev/blog/nginx-certbot.html</link>
+			<description>Using NGINX and Certbot to host an Express server on ports 8080 and 8443</description>
+			<guid>https://robanderson.dev/blog/nginx-certbot</guid>
+			<pubDate>Thu, 20 Jul 2023 00:00:00 GMT</pubDate>
+			<content:encoded>&lt;h2 id="background-rambling"&gt;Background rambling&lt;/h2&gt;
+&lt;p&gt;I have recently started building a website with my partner as an opportunity for them to improve their coding ability, and to put into practice the concepts they've been learning about in the programming courses they've been taking on Codecademy and Udemy.&lt;/p&gt;
+&lt;h3 id="express"&gt;Express&lt;/h3&gt;
+&lt;p&gt;Because my partner had primarily been learning Javascript and was reasonably new to software development, I thought that building a monolithic web app running on Node.js would be the most sensible solution; this would help them reinforce their Javascript learning, and keep the architecture as simple as possible.&lt;/p&gt;
+&lt;p&gt;I decided on &lt;a href="https://expressjs.com/"&gt;Express&lt;/a&gt; with &lt;a href="https://handlebarsjs.com/"&gt;Handlebars&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;I've used Express with a client at work in the past, and found it to be pretty simple to get up and running. I had only used Express to build backend restful(ish) and async websocket apis so using it for a full website would be a nice learning opportunity for me too.&lt;/p&gt;
+&lt;p&gt;Handlebars made the most sense as the templating language, as it's most similar to plain HTML (which my partner is comfortable with), but also allows for rendering the HTML with data we'll be pulling out of a database in the future.&lt;/p&gt;
+&lt;h3 id="hosting"&gt;Hosting&lt;/h3&gt;
+&lt;p&gt;AWS is generally my go-to hosting platform, and while I will most likely host the finished website on AWS it made sense to avoid hosting costs and complexity while we're working on it.&lt;/p&gt;
+&lt;p&gt;I have an Intel NUC running Ubuntu Server sitting on a desk in my loft; it currently runs a few different services but has plenty of capacity for a small website that will likely only get a few hundred hits in its lifetime. I also didn't have a website or API running publically from my home internet, so ports 80 and 443 are both available to forward from my router.&lt;/p&gt;
+&lt;p&gt;I decided on hosting the Express application behind NGINX both as another learning opportunity, and because I couldn't be bothered to work out how to hook up Express to an SSL certificate.&lt;/p&gt;
+&lt;p&gt;I have a dynamic IP address from my ISP, but thankfully I've been a fan and Patreon supporter of &lt;a href="https://www.duckdns.org/"&gt;Duck DNS&lt;/a&gt; for years. Duck DNS allows me to have one of their subdomains pointed at my IP address, and there's a script on my NUC that pings their service every 5 minutes to keep the DNS record up-to-date.&lt;/p&gt;
+&lt;p&gt;I setup a new subdomain, and set the CNAME to point at my Duck DNS address.&lt;/p&gt;
+&lt;h2 id="setup"&gt;Setup&lt;/h2&gt;
+&lt;p&gt;With the Express app already running on my NUC listening on port 3000, I installed NGINX and made myself a new config file&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;sudo apt install nginx
+
+# create new nginx config file
+sudo nano /etc/nginx/sites-available/test.robanderson.dev.conf
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;I added the following initial config to create a server listening on port 8080 (port 80 was already taken by Pihole) and forwarded all traffic to &lt;code&gt;http://localhost:3000&lt;/code&gt; where the Express service was listening&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-nginxconf"&gt;server {
+    server_name test.robanderson.dev;
+    listen 8080;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;blockquote&gt;
+&lt;p&gt;It's important at this stage to set the &lt;code&gt;server_name&lt;/code&gt; to the url that's been forwarded to the IP address where the site is being hosted, otherwise the Certbot step won't work&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;I then enabled the new site, disabled the default NGINX site, tested my config, and restarted the NGINX service&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;# create symlink to sites-enabled
+sudo ln -s /etc/nginx/sites-available/test.robanderson.dev.conf /etc/nginx/sites-enabled/
+
+# remove default site
+sudo rm /etc/nginx/sites-enabled/default
+
+# to test config changes
+sudo nginx -t
+
+# restart nginx
+sudo systemctl restart nginx
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;After opening up port 8080 in ufw, and forwarding 80 to 8080 in the settings for my router, I was able to access the Express site using my subdomain&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;sudo ufw allow 8080/tcp
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The next step was to get a Let's Encrypt SSL certificate, and test I could access the site with HTTPS.&lt;/p&gt;
+&lt;p&gt;The last time I used Let's Encrypt at an old job the process was mostly manual, and required following exact steps every three months after suddenly getting expired certificate warnings. Thankfully, a quick Google search showed that the process can be completely automated using Certbot.&lt;/p&gt;
+&lt;p&gt;I didn't have anything running on port 443 on my NUC, but decided to use port 8443 internally to match my use of port 8080. I struggled for a while to find any Stack Overflow answers that showed how to use Certbot with alternate ports, but thankfully I found the command line options &lt;code&gt;--http-01-port&lt;/code&gt; and &lt;code&gt;--https-port&lt;/code&gt; in the Certbot documentation&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;# install certbot as a snap
+sudo snap install --classic certbot
+
+# create symlink to allow easier(?) execution
+sudo ln -s /snap/bin/certbot /usr/bin/certbot
+
+# get letsencrypt certificate using certbot
+# tell certbot that the server is listening on port 8080 and we want the ssl-enabled service to listen on port 8443
+sudo certbot --nginx --http-01-port 8080 --https-port 8443
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Certbot automatically added the necessary config, and will auto-renew SSL certificates for me in the future before they expire; isn't technology marvellous.&lt;/p&gt;
+&lt;p&gt;Certbot had made changes to my NGINX config, to listen on the new HTTPS port, and to use the new certificate&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-nginxconf"&gt;server {
+    server_name test.robanderson.dev;
+    listen 8080;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    listen 8443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/test.robanderson.dev/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/test.robanderson.dev/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;After Certbot's changes, NGINX will listen and respond to requests on both port 8080 and 8443, but won't automatically redirect all HTTP requests to HTTPS. A few small tweaks to the config will perform redirects so all requests will be over HTTPS.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Create a new &lt;code&gt;server&lt;/code&gt; section to handle the redirects&lt;/li&gt;
+&lt;li&gt;Copy the &lt;code&gt;server_name&lt;/code&gt; to the new section&lt;/li&gt;
+&lt;li&gt;Move &lt;code&gt;listen 8080;&lt;/code&gt; to the new section&lt;/li&gt;
+&lt;li&gt;Add &lt;code&gt;return 301&lt;/code&gt; line so all requests get redirected to port 8443, with the request parameters intact&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre&gt;&lt;code class="language-nginxconf"&gt;server {
+    server_name test.robanderson.dev;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    listen 8443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/test.robanderson.dev/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/test.robanderson.dev/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+}
+
+server {
+    server_name test.robanderson.dev;
+    listen 8080;
+    return 301 https://test.robanderson.dev$request_uri;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;I then re-tested the NGINX config and restarted the service&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;sudo nginx -t
+
+sudo systemctl restart nginx
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;After opening port 8443 in ufw, and forwarding port 443 to 8443 in my router configuration, navigating to &lt;code&gt;http://test.robanderson.dev&lt;/code&gt; will redirect me to &lt;code&gt;https://test.robanderson.dev&lt;/code&gt; with a nice shiny new SSL certificate from Let's Encrypt.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;sudo ufw allow 8443/tcp
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Hopefully this helps someone in the future, or at least helps me when I inevitably forget how I set the site up.&lt;/p&gt;
+</content:encoded>
+			<comments xmlns="http://purl.org/rss/1.0/modules/slash/">0</comments>
+		</item>
+		<item>
+			<title>Converting path parameters to query string parameters for API Gateway websocket APIs</title>
+			<link>https://robanderson.dev/blog/cloudfront-url-transform.html</link>
+			<description>Using CloudFront to transform path parameters to query strings in a websocket URL for API Gateway</description>
+			<guid>https://robanderson.dev/blog/cloudfront-url-transform</guid>
+			<pubDate>Fri, 09 Jun 2023 00:00:00 GMT</pubDate>
+			<content:encoded>&lt;p&gt;&lt;strong&gt;TL;DR&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Deploy instructions &lt;a href="https://robanderson.dev/blog/#using-the-template"&gt;here&lt;/a&gt;&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Full yaml template &lt;a href="https://robanderson.dev/blog/#full-template"&gt;here&lt;/a&gt;&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id="why"&gt;Why&lt;/h2&gt;
+&lt;p&gt;API Gateway websocket APIs don't support path parameters after the stage in their URL.  The simple solution would be to avoid using path parameters, but sensible decisions like that aren't always an option.&lt;/p&gt;
+&lt;p&gt;URLs like &lt;code&gt;wss://abcdefghij.execute-api.eu-west-2.amazonaws.com/Prod/hello&lt;/code&gt; will result in a 403 Forbidden status code when connecting with a tool like &lt;code&gt;wscat&lt;/code&gt;. The stage in this case is &lt;code&gt;Prod&lt;/code&gt;, and I've added a path parameter &lt;code&gt;hello&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;On one project, the team I was on was building a Websocket API on AWS that had to adhere to an existing standard; we were given an API contract that we had to build to that included the user's auth token as a path parameter on the end of the URL. This was fine for the existing legacy solution we were replacing, but presented an issue with our new serverless solution.&lt;/p&gt;
+&lt;p&gt;Eventually, I was pointed towards CloudFront functions by a friend, and I spent the next weekend hacking to create a workaround for our issue.&lt;/p&gt;
+&lt;h2 id="solution"&gt;Solution&lt;/h2&gt;
+&lt;p&gt;&lt;img src="https://robanderson.dev/blog/images/cloudfront-url-transform.drawio.png" alt="architecture diagram"&gt;&lt;/p&gt;
+&lt;p&gt;The solution I worked on involved creating a CloudFront distribution that the user connected to, with a CloudFront function to take any path parameters and convert them to query string parameters for API Gateway to handle.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-plaintext"&gt;wss://abcdefghijklmn.cloudfront.net/one/two/three
+↓
+wss://abcdefghij.execute-api.eu-west-2.amazonaws.com/Prod?path=one&amp;amp;path=two&amp;amp;path=three
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The event received in the Connect Lambda will look like the following json&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-json"&gt;{
+    "headers": { ... },
+    "isBase64Encoded": false,
+    "multiValueHeaders": { ... },
+    "multiValueQueryStringParameters": {
+        "path": [
+            "one",
+            "two",
+            "three"
+        ]
+    },
+    "queryStringParameters": {
+        "path": "three"
+    },
+    "requestContext": { ... }
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id="using-the-template"&gt;Using the template&lt;/h2&gt;
+&lt;h3 id="requirements"&gt;Requirements&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;AWS Account&lt;/li&gt;
+&lt;li&gt;AWS CLI (&lt;a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html"&gt;Installer&lt;/a&gt;) (&lt;a href="https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html"&gt;Setup&lt;/a&gt;)&lt;/li&gt;
+&lt;li&gt;AWS SAM CLI (&lt;a href="https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html"&gt;Installer&lt;/a&gt;)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id="optional-tools"&gt;Optional tools&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;wscat (&lt;a href="https://github.com/websockets/wscat#installation"&gt;Install instructions&lt;/a&gt;) (for testing)&lt;/li&gt;
+&lt;li&gt;cfn-lint (&lt;a href="https://github.com/aws-cloudformation/cfn-lint#install"&gt;Install instructions&lt;/a&gt;) (for template validation)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;$ aws --version
+aws-cli/2.11.20 Python/3.11.3 Darwin/22.5.0 exe/x86_64 prompt/off
+
+$ sam --version
+SAM CLI, version 1.84.0
+
+$ wscat --version
+5.2.0
+
+$ cfn-lint --version
+cfn-lint 0.77.5
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id="build-and-deploy"&gt;Build and deploy&lt;/h3&gt;
+&lt;p&gt;Copy the &lt;a href="https://robanderson.dev/blog/#full-template"&gt;full template&lt;/a&gt; from the bottom of this article, or copy the yaml from &lt;a href="https://gist.github.com/jamsidedown/f813d82342a13fcbab5ef89d7ce29e24"&gt;the Github Gist&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;Save the contents into a &lt;code&gt;template.yaml&lt;/code&gt; file in whichever directory you want to use as a project directory. This template should serve as a good starting point for any serverless websocket solution with AWS.&lt;/p&gt;
+&lt;p&gt;The template can be checked for errors with &lt;code&gt;cfn-lint&lt;/code&gt;.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;$ cfn-lint template.yaml
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Now the template can be built, and deployed to AWS. For the first run, the &lt;code&gt;sam deploy&lt;/code&gt; command will need to be quite verbose, but for subsequent deploys the process is a lot simpler.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;sam build
+
+# the stack name can be replaced with whatever you want
+sam deploy --stack-name MyWebsocketApi --capabilities CAPABILITY_NAMED_IAM --guided
+
+# I left all values as default, and saved the output to samconfig.toml
+# this makes subsequent deploys much easier
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;# for future deploys
+sam build &amp;amp;&amp;amp; sam deploy
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Assuming the build and deploy succeed, you should see some output with the API Gateway and CloudFront urls&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;sam build &amp;amp;&amp;amp; sam deploy
+
+...
+
+CloudFormation outputs from deployed stack
+--------------------------------------------------------------------------------------------------------------------------
+Outputs                                                                                                                  
+--------------------------------------------------------------------------------------------------------------------------
+Key                 CloudFrontUrl                                                                                        
+Description         Cloudfront URL                                                                                       
+Value               wss://abcdefghijklmn.cloudfront.net                                                                  
+
+Key                 ServerApi                                                                                            
+Description         Api Gateway endpoint URL                                                                             
+Value               wss://abcdefghij.execute-api.eu-west-2.amazonaws.com/Prod                                            
+--------------------------------------------------------------------------------------------------------------------------
+
+
+Successfully created/updated stack - MyWebsocketApi in eu-west-2
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Now the endpoint can be tested with &lt;code&gt;wscat&lt;/code&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;$ wscat -c wss://abcdefghijklmn.cloudfront.net/one/two/three
+Connected (press CTRL+C to quit)
+&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;After checking the log group for the Connect Lambda, I can see the query strings that the CloudFront Function have transformed.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-json"&gt;{
+    "headers": { ... },
+    "isBase64Encoded": false,
+    "multiValueHeaders": { ... },
+    "multiValueQueryStringParameters": {
+        "path": [
+            "one",
+            "two",
+            "three"
+        ]
+    },
+    "queryStringParameters": {
+        "path": "three"
+    },
+    "requestContext": { ... }
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id="api-gateway"&gt;API Gateway&lt;/h2&gt;
+&lt;pre&gt;&lt;code class="language-yaml"&gt;ApiGateway:
+  Type: "AWS::ApiGatewayV2::Api"
+  Properties:
+    Name: !Sub "${AWS::StackName}-wss-api"
+    ProtocolType: "WEBSOCKET"
+    RouteSelectionExpression: "\\$default"
+
+Stage:
+  Type: "AWS::ApiGatewayV2::Stage"
+  Properties:
+    StageName: "Prod"
+    AutoDeploy: true
+    ApiId: !Ref "ApiGateway"
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;I've defined a simple websocket API, with a &lt;code&gt;Prod&lt;/code&gt; stage that deploys every time the API changes.&lt;/p&gt;
+&lt;p&gt;I discovered the &lt;code&gt;AutoDeploy&lt;/code&gt; option for the stage very recently, and it makes the template a lot simpler than manually defining deployments. I've had a number of issues with routes not being added or updated until API Gateway is manually deployed in the past.&lt;/p&gt;
+&lt;h2 id="lambda"&gt;Lambda&lt;/h2&gt;
+&lt;p&gt;Initially I hadn't implemented any routes for API Gateway, but found that I was unable to deploy without at least one route complete. This also made it easier to verify my CloudFront Function was working correctly, as Lambda produced logs that can be checked in CloudWatch.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-yaml"&gt;ConnectFunction:
+  Type: "AWS::Serverless::Function"
+  Properties:
+    Runtime: "python3.10"
+    Timeout: 30
+    Architectures:
+      - "arm64"
+    MemorySize: 256
+    Role: !GetAtt "LambdaRole.Arn"
+    Handler: "index.handler"
+    InlineCode: |
+      def handler(event, context):
+        print(event)
+        return {'statusCode': 200}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;I've added a connect lambda with some inline code that logs the received event, then returns a success status code so that the user can connect to the websocket API. I've used Python because I like Python, it runs quickly with very little memory, and it's &lt;a href="https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-code.html#cfn-lambda-function-code-zipfile"&gt;one of the runtimes&lt;/a&gt; that supports &lt;code&gt;InlineCode&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;There are also entries in the full template at the bottom of the post to give the lambda permissions to write logs to CloudWatch, and permissions to allow API Gateway to invoke the lambda. I've defined the CloudWatch log group in the CloudFormation template too, so that it gets cleared down with the rest of the stack if/when the stack is deleted. (No one wants to discover hundreds of development log groups left behind).&lt;/p&gt;
+&lt;p&gt;The route and the integration are required to hook the Lambda up to API Gateway.&lt;/p&gt;
+&lt;h2 id="cloudwatch"&gt;CloudWatch&lt;/h2&gt;
+&lt;p&gt;CloudWatch accounts for the majority of the complexity in this post, it's a bit of a large lump of &lt;code&gt;yaml&lt;/code&gt; - apologies.&lt;/p&gt;
+&lt;p&gt;&lt;a href="https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-function.html"&gt;Documentation for CloudFront Functions&lt;/a&gt; is a lot better than it used to be.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-yaml"&gt;CloudFrontDist:
+  Type: "AWS::CloudFront::Distribution"
+  Properties:
+    DistributionConfig:
+      Origins:
+        - Id: !Sub "${AWS::StackName}-cloudfront-origin"
+          DomainName: !Sub "${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com"
+          OriginPath: !Sub "/${Stage}"
+          CustomOriginConfig:
+            HTTPSPort: 443
+            OriginProtocolPolicy: "https-only"
+      DefaultCacheBehavior:
+        ViewerProtocolPolicy: "https-only"
+        TargetOriginId: !Sub "${AWS::StackName}-cloudfront-origin" # must be the same as the origin defined above
+        CachePolicyId: "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" # Managed-CachingDisabled
+        OriginRequestPolicyId: !Ref "CloudFrontOriginRequestPolicy"
+        FunctionAssociations:
+          - EventType: "viewer-request"
+            FunctionARN: !GetAtt "CloudFrontFunction.FunctionMetadata.FunctionARN"
+      Enabled: true
+      IPV6Enabled: false
+
+CloudFrontOriginRequestPolicy:
+  Type: "AWS::CloudFront::OriginRequestPolicy"
+  Properties:
+    OriginRequestPolicyConfig:
+      Name: !Sub "${AWS::StackName}-cloudfront-orp"
+      HeadersConfig:
+        HeaderBehavior: "whitelist"
+        Headers:
+          - "Sec-WebSocket-Key"
+          - "Sec-WebSocket-Version"
+          - "Sec-WebSocket-Protocol"
+          - "Sec-WebSocket-Accept"
+      QueryStringsConfig:
+        QueryStringBehavior: "all"
+      CookiesConfig:
+        CookieBehavior: "none"
+
+CloudFrontFunction:
+  Type: "AWS::CloudFront::Function"
+  Properties:
+    Name: !Sub "${AWS::StackName}-cloudfront-function"
+    AutoPublish: true
+    FunctionCode: |
+      function handler(event) {
+        var request = event.request;
+        var re = /^(.*?\/)([^.]+)$/;
+        var match = re.exec(request.uri);
+        if (match) {
+          request.uri = match[1];
+          request.querystring.path = {
+              'multiValue': match[2].split('/').map(p =&amp;gt; { return {'value': p} })
+          };
+        }
+        return request;
+      }
+    FunctionConfig:
+      Comment: "Change path parameters to query string"
+      Runtime: "cloudfront-js-1.0"
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;API Gateway is setup as the sole origin for CloudFront, all traffic must be over HTTPS (which WSS is built on top of), and caching has been disabled through the cryptic looking &lt;code&gt;DefaultCacheBehaviour&lt;/code&gt;. You can read the &lt;a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/using-managed-cache-policies.html"&gt;documentation for the caching&lt;/a&gt; to see where &lt;code&gt;4135ea2d-6df8-44a3-9df3-4b5a84be39ad&lt;/code&gt; came from.&lt;/p&gt;
+&lt;p&gt;When a user initially tries to connect to CloudFront, the &lt;code&gt;CloudFrontFunction&lt;/code&gt; will execute to modify the request.&lt;/p&gt;
+&lt;p&gt;The &lt;code&gt;OriginRequestPolicy&lt;/code&gt; restricts connections to websockets only, and from memory does very little else.&lt;/p&gt;
+&lt;p&gt;The &lt;code&gt;CloudFrontFunction&lt;/code&gt; is the star of the show here, and was also the part that took the longest to get right.
+There is an editor in the AWS Console that allows you modify and test your function, but if any part of your test parameters are incorrect it can be very difficult to work out why the function works in testing but not live.&lt;/p&gt;
+&lt;p&gt;The part that initially caught me out was that the &lt;code&gt;event.request.uri&lt;/code&gt; doesn't include the CloudFront URL, so if the user visits &lt;code&gt;wss://abcdefghijklmn.cloudfront.net/one/two/three&lt;/code&gt; the &lt;code&gt;uri&lt;/code&gt; will be &lt;code&gt;/one/two/three&lt;/code&gt;. The inline function above will then set the &lt;code&gt;uri&lt;/code&gt; to &lt;code&gt;/&lt;/code&gt;, and move the path parameters into query string parameters.&lt;/p&gt;
+&lt;p&gt;Currently, the only way to programatically deploy a CloudWatch Function is to include the javascript code in the template like this. I'd prefer to be able to work with Python, but it's been about 18 months since I first worked on this, and &lt;code&gt;cloudfront-js-1.0&lt;/code&gt; is still the only available runtime. &lt;a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/functions-javascript-runtime-features.html"&gt;cloudfront-js-1.0&lt;/a&gt; is fully compliant with ES 5.1, with a few extras tacked on by AWS.&lt;/p&gt;
+&lt;p&gt;There is now &lt;a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/functions-event-structure.html#functions-event-structure-query-header-cookie"&gt;decent documentation for the event structure&lt;/a&gt; in CloudFront Functions, and a &lt;a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/writing-function-code.html"&gt;basic guide to writing CloudFront Functions&lt;/a&gt;. Both are helpful, but feel like they're missing some details around multi-value query strings.&lt;/p&gt;
+&lt;p&gt;As a warning, CloudFront functions seem to take a few minutes to deploy every time they're changed, so I'd recommend trying to keep changes to a minimum.&lt;/p&gt;
+&lt;h2 id="full-template"&gt;Full template&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;Also avaiable &lt;a href="https://gist.github.com/jamsidedown/f813d82342a13fcbab5ef89d7ce29e24"&gt;from this Github gist&lt;/a&gt;&lt;/strong&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-yaml"&gt;AWSTemplateFormatVersion: "2010-09-09"
+Transform: "AWS::Serverless-2016-10-31"
+
+Resources:
+  ApiGateway:
+    Type: "AWS::ApiGatewayV2::Api"
+    Properties:
+      Name: !Sub "${AWS::StackName}-wss-api"
+      ProtocolType: "WEBSOCKET"
+      RouteSelectionExpression: "\\$default"
+
+  Stage:
+    Type: "AWS::ApiGatewayV2::Stage"
+    Properties:
+      StageName: "Prod"
+      AutoDeploy: true
+      ApiId: !Ref "ApiGateway"
+
+  LambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub "${AWS::StackName}-lambda-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+
+  LambdaPolicy:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyName: !Sub "${AWS::StackName}-lambda-policy"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Action:
+              - "logs:CreateLogGroup"
+              - "logs:CreateLogStream"
+              - "logs:PutLogEvents"
+            Resource: "*"
+      Roles:
+        - !Ref "LambdaRole"
+
+  ConnectFunction:
+    Type: "AWS::Serverless::Function"
+    Properties:
+      Runtime: "python3.10"
+      Timeout: 30
+      Architectures:
+        - "arm64"
+      MemorySize: 256
+      Role: !GetAtt "LambdaRole.Arn"
+      Handler: "index.handler"
+      InlineCode: |
+        def handler(event, context):
+          print(event)
+          return {'statusCode': 200}
+
+  ConnectFunctionLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${ConnectFunction}"
+      RetentionInDays: 30
+
+  ConnectInvokePermission:
+    Type: "AWS::Lambda::Permission"
+    DependsOn:
+      - "ApiGateway"
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !Ref "ConnectFunction"
+      Principal: "apigateway.amazonaws.com"
+
+  ConnectRoute:
+    Type: "AWS::ApiGatewayV2::Route"
+    Properties:
+      ApiId: !Ref "ApiGateway"
+      RouteKey: "$connect"
+      OperationName: "ConnectRoute"
+      Target: !Sub "integrations/${ConnectIntegration}"
+
+  ConnectIntegration:
+    Type: "AWS::ApiGatewayV2::Integration"
+    Properties:
+      ApiId: !Ref "ApiGateway"
+      IntegrationType: "AWS_PROXY"
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ConnectFunction.Arn}/invocations"
+
+  CloudFrontDist:
+    Type: "AWS::CloudFront::Distribution"
+    Properties:
+      DistributionConfig:
+        Origins:
+          - Id: !Sub "${AWS::StackName}-cloudfront-origin"
+            DomainName: !Sub "${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com"
+            OriginPath: !Sub "/${Stage}"
+            CustomOriginConfig:
+              HTTPSPort: 443
+              OriginProtocolPolicy: "https-only"
+        DefaultCacheBehavior:
+          ViewerProtocolPolicy: "https-only"
+          TargetOriginId: !Sub "${AWS::StackName}-cloudfront-origin" # must be the same as the origin defined above
+          CachePolicyId: "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" # Managed-CachingDisabled
+          OriginRequestPolicyId: !Ref "CloudFrontOriginRequestPolicy"
+          FunctionAssociations:
+            - EventType: "viewer-request"
+              FunctionARN: !GetAtt "CloudFrontFunction.FunctionMetadata.FunctionARN"
+        Enabled: true
+        IPV6Enabled: false
+
+  CloudFrontOriginRequestPolicy:
+    Type: "AWS::CloudFront::OriginRequestPolicy"
+    Properties:
+      OriginRequestPolicyConfig:
+        Name: !Sub "${AWS::StackName}-cloudfront-orp"
+        HeadersConfig:
+          HeaderBehavior: "whitelist"
+          Headers:
+            - "Sec-WebSocket-Key"
+            - "Sec-WebSocket-Version"
+            - "Sec-WebSocket-Protocol"
+            - "Sec-WebSocket-Accept"
+        QueryStringsConfig:
+          QueryStringBehavior: "all"
+        CookiesConfig:
+          CookieBehavior: "none"
+
+  CloudFrontFunction:
+    Type: "AWS::CloudFront::Function"
+    Properties:
+      Name: !Sub "${AWS::StackName}-cloudfront-function"
+      AutoPublish: true
+      FunctionCode: |
+        function handler(event) {
+          var request = event.request;
+
+          var re = /^(.*?\/)([^.]+)$/;
+          var match = re.exec(request.uri);
+
+          if (match) {
+            request.uri = match[1];
+
+            request.querystring.path = {
+                'multiValue': match[2].split('/').map(p =&amp;gt; { return {'value': p} })
+            };
+          }
+
+          return request;
+        }
+      FunctionConfig:
+        Comment: "Change path parameters to query string"
+        Runtime: "cloudfront-js-1.0"
+
+Outputs:
+  ServerApi:
+    Description: "Api Gateway endpoint URL"
+    Value: !Sub "${ApiGateway.ApiEndpoint}/${Stage}"
+  CloudFrontUrl:
+    Description: "Cloudfront URL"
+    Value: !Sub "wss://${CloudFrontDist.DomainName}"
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id="summary"&gt;Summary&lt;/h2&gt;
+&lt;p&gt;Thanks for taking the time to read this, hopefully it'll serve as some sort of documentation for this slightly convoluted workaround to this issue with API Gateway.&lt;/p&gt;
+</content:encoded>
+			<comments xmlns="http://purl.org/rss/1.0/modules/slash/">0</comments>
+		</item>
+		<item>
+			<title>Creating a simple websocket API on AWS with C#</title>
+			<link>https://robanderson.dev/blog/websocket-api.html</link>
+			<description>Using API Gateway and Lambda to create a websocket API on AWS with C#</description>
+			<guid>https://robanderson.dev/blog/websocket-api</guid>
+			<pubDate>Wed, 31 May 2023 00:00:00 GMT</pubDate>
+			<content:encoded>&lt;p&gt;&lt;strong&gt;TL;DR deploy instructions &lt;a href="https://robanderson.dev/blog/#using-the-template"&gt;here&lt;/a&gt;&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id="goals"&gt;Goals&lt;/h2&gt;
+&lt;p&gt;When creating and deploying serverless websocket APIs on AWS in the past, there have been a series of pain points that I have been collecting solutions for.&lt;/p&gt;
+&lt;p&gt;I've created a &lt;a href="https://github.com/jamsidedown/AwsWebsocketDotnetTemplate"&gt;GitHub template repository&lt;/a&gt; to try to make setting up a new websocket API on AWS as easy as possible. This article serves as a companion to the repo to explain why I've done the things I've done.&lt;/p&gt;
+&lt;p&gt;The &lt;a href="https://github.com/jamsidedown/AwsWebsocketDotnetTemplate/blob/main/template.yaml"&gt;CloudFormation template&lt;/a&gt; included with the C# solution allows the API to be deployed to AWS very quickly, without manual setup from developers. The template serves as a starting point, and can be modified to fit the developer's needs.&lt;/p&gt;
+&lt;h2 id="prerequisites"&gt;Prerequisites&lt;/h2&gt;
+&lt;p&gt;My implementation uses C# as the programming language for the Lambda functions, though it shouldn't be too difficult to swap out the code for another &lt;a href="https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html"&gt;supported language&lt;/a&gt;*; only the code and the template entries for the lambda functions will need changed.&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;*note that at the time of writing, .Net 5 and 7 are listed as supported runtimes, but neither seem to be valid.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="technologies-used"&gt;Technologies used&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;CloudFormation&lt;/li&gt;
+&lt;li&gt;API Gateway&lt;/li&gt;
+&lt;li&gt;Lambda&lt;/li&gt;
+&lt;li&gt;DynamoDB&lt;/li&gt;
+&lt;li&gt;C#&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="requirements-for-deploying"&gt;Requirements for deploying&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;AWS account&lt;/li&gt;
+&lt;li&gt;AWS CLI (&lt;a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html"&gt;Installer&lt;/a&gt;) (&lt;a href="https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html"&gt;Setup&lt;/a&gt;)&lt;/li&gt;
+&lt;li&gt;AWS SAM CLI (&lt;a href="https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html"&gt;Installer&lt;/a&gt;)&lt;/li&gt;
+&lt;li&gt;Dotnet SDK 6+ (&lt;a href="https://dotnet.microsoft.com/en-us/download"&gt;Installer&lt;/a&gt;)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="architecture"&gt;Architecture&lt;/h2&gt;
+&lt;p&gt;&lt;img src="https://robanderson.dev/blog/images/websocket-api-architecture.png" alt="architecture diagram"&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;User connects to API Gateway via websockets (wss)&lt;/li&gt;
+&lt;li&gt;API Gateway invokes a lambda to store the user's unique connection id to DynamoDB&lt;/li&gt;
+&lt;li&gt;When the user sends a message through the wss connection, a lambda is invoked to handle the message&lt;/li&gt;
+&lt;li&gt;When the user disconnects, a lambda runs to remove the user from DynamoDB&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="using-the-template"&gt;Using the template&lt;/h2&gt;
+&lt;p&gt;Either clone the &lt;a href="https://github.com/jamsidedown/AwsWebsocketDotnetTemplate"&gt;repository&lt;/a&gt;, or use the repository as a template with the little green “Use this template“ button on Github or by clicking &lt;a href="https://github.com/jamsidedown/AwsWebsocketDotnetTemplate/generate"&gt;here&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;To clone the repository&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;# clone the repo
+git clone https://github.com/jamsidedown/AwsWebsocketDotnetTemplate.git
+
+# change into the repo directory
+cd AwsWebsocketDotnetTemplate
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;To build the code*&lt;/p&gt;
+&lt;p&gt;*Ensure you’ve installed Dotnet SDK&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;# change into the src directory
+cd src
+
+# restore dependencies and build the source
+dotnet restore
+dotnet build
+
+# run unit tests on the code
+dotnet test
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;To deploy to AWS&lt;/p&gt;
+&lt;p&gt;*First, ensure you have installed the AWS CLI and the AWS SAM CLI&lt;/p&gt;
+&lt;p&gt;*Second, ensure you’ve configured the AWS CLI to be connected to your AWS account&lt;/p&gt;
+&lt;p&gt;The process is a little different the first time you deploy the stack&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;# if you're in the src directory then move up to the parent directory
+cd ..
+
+# first run a build to compile and package the code
+sam build
+
+# then deploy to AWS
+# the stack name can be replaced with whatever you choose
+sam deploy --stack-name MyWebsocketApi --capabilities CAPABILITY_NAMED_IAM --guided
+# leave all guided values as default
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;After the first deploy, the process is significantly simpler&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;sam build &amp;amp;&amp;amp; sam deploy
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;After deploying, the url of the websocket API will be output in your terminal, wscat is a great tool for connecting to websocket APIs.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;CloudFormation outputs from deployed stack
+--------------------------------------------------------------------------------------------------------------------------
+Outputs                                                                                                                  
+--------------------------------------------------------------------------------------------------------------------------
+Key                 ApiUrl                                                                                               
+Description         Api Gateway endpoint URL                                                                             
+Value               wss://abcdefghij.execute-api.eu-west-2.amazonaws.com/Prod                                            
+--------------------------------------------------------------------------------------------------------------------------
+
+
+Successfully created/updated stack - MyWebsocketApi in eu-west-2
+
+$ wscat -c wss://abcdefghij.execute-api.eu-west-2.amazonaws.com/Prod
+Connected (press CTRL+C to quit)
+&amp;gt; Hello
+&amp;lt; Hello
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id="why-serverless"&gt;Why serverless&lt;/h2&gt;
+&lt;p&gt;In my case, serverless is convenient for development because the majority of the time my API is sitting getting zero requests. As a developer writing personal projects I want to avoid incurring a bill for my dev work, but be able to scale up to meet any demand I can reasonably expect to get from a published service.&lt;/p&gt;
+&lt;p&gt;I worked with serverless and websockets in past jobs, so I'm more comfortable with CloudFormation templates than building and publishing containers. I like that I can deploy a NoSQL database as easily as I can with DynamoDB, and adding a queue later down the line for message handling can be added with just a few lines in my template.&lt;/p&gt;
+&lt;p&gt;Serverless isn't for everyone, or for every occasion, but it works for me in this case.&lt;/p&gt;
+&lt;h2 id="api-gateway"&gt;API gateway&lt;/h2&gt;
+&lt;p&gt;API Gateway is the AWS service to use if you want to host a serverless API.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-yaml"&gt;ApiGateway:
+  Type: "AWS::ApiGatewayV2::Api"
+  Properties:
+    Name: !Sub "${AWS::StackName}-wss-api"
+    ProtocolType: "WEBSOCKET"
+    RouteSelectionExpression: "\\$default"
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The API gateway I've defined in the CloudFormation template is set up as a Websocket API, with routes defined for connecting, disconnecting, and a default route to handle all messages received from the client.&lt;/p&gt;
+&lt;p&gt;Here, the &lt;code&gt;RouteSelectionExpression&lt;/code&gt; has been set to &lt;code&gt;\\$default&lt;/code&gt;, which means that all messages sent to the API after a client has connected will be handled by the lambda attached to the default route.&lt;/p&gt;
+&lt;p&gt;It’s more common (at least in projects I’ve worked on) to specify the action as part of the message being sent to the API, in which case the &lt;code&gt;RouteSelectionExpression&lt;/code&gt; can be set to &lt;code&gt;$request.body.action&lt;/code&gt;*. This enables messages with the format&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-json"&gt;{
+  "action": "broadcast",
+  "body": {"message": "Hello, world!"}
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;API Gateway will read the &lt;code&gt;action&lt;/code&gt; from the message sent by the client and forward the message to the lambda attached to the &lt;code&gt;broadcast&lt;/code&gt; route (if it exists).&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;*The &lt;a href="https://docs.aws.amazon.com/apigateway/latest/developerguide/websocket-api-develop-routes.html"&gt;documentation&lt;/a&gt; for the &lt;code&gt;RouteSelectionExpression&lt;/code&gt; says that this is more customisable than I initially thought, and that any property in the json message can be used for routing.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id="logging"&gt;Logging&lt;/h3&gt;
+&lt;p&gt;I’ve left API Gateway logging out of the template, as it stores a lot of data to CloudWatch. If required, I’ve generally enabled it manually through the AWS console, tested whatever I needed to test, then disabled it again once I was finished.&lt;/p&gt;
+&lt;h3 id="stage"&gt;Stage&lt;/h3&gt;
+&lt;pre&gt;&lt;code class="language-yaml"&gt;Stage:
+  Type: "AWS::ApiGatewayV2::Stage"
+  Properties:
+    StageName: "Prod"
+    AutoDeploy: true
+    ApiId: !Ref "ApiGateway"
+    DefaultRouteSettings:
+      ThrottlingRateLimit: 100
+      ThrottlingBurstLimit: 50
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;There's a &lt;code&gt;Prod&lt;/code&gt; stage that auto deploys every time it needs to, with some configured throttling to avoid accidentally hammering any of the lambdas in an infinite loop if I forget to add an exit condition (which happened to a front-end dev at a company I used to work at).&lt;/p&gt;
+&lt;p&gt;API Gateway has a number of default rate-limiting restrictions, but I’ve set low values here both to ensure I don’t incur unexpected costs, as well as showing how to customise these values.&lt;/p&gt;
+&lt;p&gt;My understanding is that each request takes a token from a bucket, once the bucket has ran out of tokens, each new request will recieve an error until there are new tokens available. The rate limit is the number of new tokens that get added to the bucket every second, and the burst limit is the number of  reserve tokens the bucket can hold.&lt;/p&gt;
+&lt;h3 id="routes-and-integrations"&gt;Routes and integrations&lt;/h3&gt;
+&lt;p&gt;Any lambda that will be invoked by API Gateway will need to be hooked up using a route and an integration. I’ve described this in more detail in the Lambda section below.&lt;/p&gt;
+&lt;h3 id="limitations"&gt;Limitations&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Websocket APIs can only accept 500 new connections per second, this value can be adjusted through AWS support, but I’ve not found anything online regarding the maximum requests per second available&lt;/li&gt;
+&lt;li&gt;There is a default maximum rate limit of 10,000 requests per second with a burst bucket size of 5,000 on a per AWS account basis. This value can also be raised through AWS support, but I’m not sure how far&lt;/li&gt;
+&lt;li&gt;API Gateway websocket sessions have a maximum lifetime of 2 hours, this cannot be adjusted
+&lt;ul&gt;
+&lt;li&gt;With the default connection rate limit, this effectively limits the maximum number of connections to 3,600,000&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;Websocket sessions have an idle timeout of 10 minutes, so clients will need to be configured to reconnect if the connection drops&lt;/li&gt;
+&lt;li&gt;Messages have a maximum size of 128KB, with a maximum frame size of 32KB (messages larger than 32KB will be split)
+&lt;ul&gt;
+&lt;li&gt;Send lots of little messages, rather than few massive ones&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;Each API is limited to 300 routes, though this can be increased via AWS support&lt;/li&gt;
+&lt;li&gt;Last time I checked API Gateway didn’t support path parameters with websocket APIs
+&lt;ul&gt;
+&lt;li&gt;I’ve used a workaround using CloudFront before&lt;/li&gt;
+&lt;li&gt;If this is still an issue I’ll write another article describing how to get around this&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="lambda"&gt;Lambda&lt;/h2&gt;
+&lt;p&gt;Lambda is AWS' service for running code on-demand. Each lambda tends to be one function, with only the dependencies and permissions it needs to do its job.&lt;/p&gt;
+&lt;p&gt;I’ve setup lambdas for the connect, disconnect, and default routes in API Gateway; each handling one small piece of functionality.&lt;/p&gt;
+&lt;p&gt;The connect lambda handles new connections to the websocket API, storing the unique connection id to DynamoDB, along with the time the user connected, any additional data to be stored about the user (username etc.), an expiry on the entry in case it isn’t cleaned up properly on disconnect.&lt;/p&gt;
+&lt;p&gt;The disconnect lambda handles clients disconnecting, removing their entry from DynamoDB. If this were a pub/sub service, the disconnect service could also remove any subscriptions associated with the connection.&lt;/p&gt;
+&lt;p&gt;The default lambda handles all messages sent from a connected client. This isn’t necessarily how I’d recommend using websockets with API Gateway, but it made for a simple starting point to build on top of.&lt;/p&gt;
+&lt;p&gt;I’ve included just the connect lambda here, as both the disconnect and default lambdas are defined in a very similar manner.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-yaml"&gt;ConnectFunction:
+  Type: "AWS::Serverless::Function"
+  Properties:
+    Handler: !Sub "${ProjectNamespace}::${ProjectNamespace}.Functions.Connect::Handler"
+    Role: !GetAtt "LambdaRole.Arn"
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;There are some sensible(?) defaults defined for lambda functions, including the runtime, memory allocation, timeout, platform architecture, and environment variables that all lambdas have access to.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-yaml"&gt;Globals:
+  Function:
+    Runtime: "dotnet6"
+    Timeout: 10
+    Architectures:
+      - "arm64"
+    MemorySize: 512
+    CodeUri: !Sub "./src/${ProjectNamespace}/"
+    Environment:
+      Variables:
+        CONNECTIONS_TABLE: !Ref "ConnectionsTable"
+        CONNECTIONS_ENDPOINT: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Stage}"
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id="cold-starts"&gt;Cold starts&lt;/h3&gt;
+&lt;p&gt;One of the common critiques around Lambda is that the first run of a function after it hasn’t been called in a while the time taken to spin up an instance of the lambda means the client will be sat waiting. This is referred to as a cold start, and can be a real pain in time-critical applications.&lt;/p&gt;
+&lt;p&gt;The CPU provisioned to each lambda scales with the memory given to the lambda to run. At 1536MB of RAM lambdas will get one full vCPU core.&lt;/p&gt;
+&lt;p&gt;For more critical applications, lambdas can be changed to use provisioned concurrency, or lambda warmers can be used to ensure a set number of lambdas stay awake at all time.&lt;/p&gt;
+&lt;p&gt;From my (brief) testing, if a faster cold start is crucial then allocating more memory is recommended. If the function is mostly going to be warm, the runtime mainly depends on how quickly other services called by the lambda are.&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Memory (MB)&lt;/th&gt;
+&lt;th&gt;Cold start (ms)&lt;/th&gt;
+&lt;th&gt;Warm invocation&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;512&lt;/td&gt;
+&lt;td&gt;1813&lt;/td&gt;
+&lt;td&gt;15&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;1024&lt;/td&gt;
+&lt;td&gt;860&lt;/td&gt;
+&lt;td&gt;11&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;1536&lt;/td&gt;
+&lt;td&gt;636&lt;/td&gt;
+&lt;td&gt;10&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3 id="log-group"&gt;Log group&lt;/h3&gt;
+&lt;p&gt;The lambda’s log group will automatically be created if not defined in the template, but I’ve had issues where log groups weren’t cleaned up when the CloudFormation stack was deleted in the past. I’ve not had that issue with log groups included in the template.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-yaml"&gt;ConnectFunctionLogGroup:
+  Type: "AWS::Logs::LogGroup"
+  Properties:
+    LogGroupName: !Sub "/aws/lambda/${ConnectFunction}"
+    RetentionInDays: 30
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;I’ve added a retention period to each log group by default, this can be easily removed if logs need to persist indefinitely. I added the retention period to avoid incurring costs for stale CloudWatch logs taking up space over time.&lt;/p&gt;
+&lt;h3 id="route-and-integration"&gt;Route and integration&lt;/h3&gt;
+&lt;p&gt;The route and integration are how API Gateway map each of it’s routes through to a lambda function. I’ve been copying and pasting these into every websocket project I’ve worked on for a while so the meanings are somewhat lost to me; if it ain’t broke don’t fix it.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-yaml"&gt;ConnectRoute:
+  Type: "AWS::ApiGatewayV2::Route"
+  Properties:
+    ApiId: !Ref "ApiGateway"
+    RouteKey: "$connect"
+    OperationName: "ConnectRoute"
+    Target: !Sub "integrations/${ConnectIntegration}"
+
+ConnectIntegration:
+  Type: "AWS::ApiGatewayV2::Integration"
+  Properties:
+    ApiId: !Ref "ApiGateway"
+    IntegrationType: "AWS_PROXY"
+    IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ConnectFunction.Arn}/invocations"
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id="invoke-permission"&gt;Invoke permission&lt;/h3&gt;
+&lt;p&gt;These permissions are defined on a per-lambda basis; they allow API Gateway to invoke each function. They are added by API Gateway automatically when adding lambda integrations in the AWS console, but I’ve not seen them included much in other blog posts around API Gateway with websockets.&lt;/p&gt;
+&lt;p&gt;It can be really annoying when getting errors in testing with no logs in CloudWatch because the lambda hasn’t been invoked.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-yaml"&gt;ConnectInvokePermission:
+  Type: "AWS::Lambda::Permission"
+  DependsOn:
+    - "ApiGateway"
+  Properties:
+    Action: "lambda:InvokeFunction"
+    FunctionName: !Ref "ConnectFunction"
+    Principal: "apigateway.amazonaws.com"
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id="dynamodb"&gt;DynamoDB&lt;/h2&gt;
+&lt;p&gt;I’ve set up a reasonably simple DynamoDB table with a composite primary key with the intention that it provides a good building block for &lt;a href="https://www.alexdebrie.com/posts/dynamodb-single-table/"&gt;single table design&lt;/a&gt;.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-yaml"&gt;ConnectionsTable:
+  Type: "AWS::DynamoDB::Table"
+  Properties:
+    AttributeDefinitions:
+      - AttributeName: "Pk"
+        AttributeType: "S"
+      - AttributeName: "Sk"
+        AttributeType: "S"
+    KeySchema:
+      - AttributeName: "Pk"
+        KeyType: "HASH"
+      - AttributeName: "Sk"
+        KeyType: "RANGE"
+    TimeToLiveSpecification:
+      AttributeName: "Ttl"
+      Enabled: true
+    BillingMode: "PAY_PER_REQUEST"
+    SSESpecification:
+      SSEEnabled: true
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;My intention is to use this template as a starting point for a pub/sub service where I’ll also store subscriptions and messages in the same table.&lt;/p&gt;
+&lt;p&gt;The partition key and sort key have both been given generic names &lt;code&gt;Pk&lt;/code&gt; and &lt;code&gt;Sk&lt;/code&gt;, as the data stored in them will vary depending on the data type of the row.&lt;/p&gt;
+&lt;p&gt;The &lt;code&gt;TimeToLiveSpecification&lt;/code&gt; allows for rows that are automatically collected after the unix timestamp defined in that attribute. The entries aren’t cleaned up immediately, so this is for rows that would otherwise be cluttering up the table.&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://robanderson.dev/blog/images/websocket-api-database.png" alt="database schema"&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Table created using the very useful &lt;a href="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/workbench.settingup.html"&gt;NoSQL Workbench&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="summary"&gt;Summary&lt;/h2&gt;
+&lt;p&gt;Thanks for reading!&lt;/p&gt;
+&lt;p&gt;Hopefully this post and repository helps someone develop a websocket project with a little less frustration than if they hadn’t found this post.&lt;/p&gt;
+</content:encoded>
+			<comments xmlns="http://purl.org/rss/1.0/modules/slash/">0</comments>
+		</item>
+	</channel>
+</rss>
