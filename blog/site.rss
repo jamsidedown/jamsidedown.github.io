@@ -6,15 +6,16 @@
 		<description />
 		<copyright>2025</copyright>
 		<managingEditor>Rob Anderson</managingEditor>
-		<pubDate>Sun, 17 Aug 2025 22:32:45 GMT</pubDate>
-		<lastBuildDate>Sun, 17 Aug 2025 22:32:45 GMT</lastBuildDate>
+		<pubDate>Mon, 18 Aug 2025 09:32:00 GMT</pubDate>
+		<lastBuildDate>Mon, 18 Aug 2025 09:32:00 GMT</lastBuildDate>
 		<item>
 			<title>Upgrading Adele and our home network</title>
 			<link>https://robanderson.dev/blog/upgrading-adele.html</link>
 			<description>Upgrading my Dell Poweredge T160 home server and home network</description>
 			<guid>https://robanderson.dev/blog/upgrading-adele</guid>
 			<pubDate>Sun, 17 Aug 2025 00:00:00 GMT</pubDate>
-			<content:encoded>&lt;p&gt;My wife and I recently upgraded out internet connection to full fibre to the premises, so I thought now would be as good a time as ever to document my home network and server upgrades.&lt;/p&gt;
+			<content:encoded>&lt;p&gt;My wife and I recently upgraded our internet connection to full fibre to the premises, so I thought now would be as good a time as ever to document my home network and server upgrades.&lt;/p&gt;
+&lt;p&gt;Adele is the name of my server, as it is "A Dell".&lt;/p&gt;
 &lt;h4 id="retiring-my-old-drives"&gt;Retiring my old drives&lt;/h4&gt;
 &lt;p&gt;The two 2TB hard disks that had all of my backup files on them were bought and installed into my old HP Microserver in August 2018. Aside from the couple of months they spent in storage when I moved house, they'd been powered on the whole time too. They were a pair of Seagate Ironwolf drives that I bought for £66.95, and while they were designed to run 24x7, their age and limited capacity with their RAID configuration meant that I was starting to look for an upgrade.&lt;/p&gt;
 &lt;p&gt;The 2TB disks were configured in RAID 1 in software using &lt;code&gt;mdadm&lt;/code&gt;, so that a disk could fail without me losing all of my data. The tradeoff here was that I only had 2TB of usable space, with everything replicated across both drives.&lt;/p&gt;
@@ -86,6 +87,7 @@ $ sudo zfs snapshot zfspool@migrated
 $ zfs list -t snapshot
 &lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;I've also enabled a monthly scrub of the zfs pool, and have added a zfs pool health check to a script that runs daily to check drive health that I'll write a post about in the future.&lt;/p&gt;
+&lt;p&gt;The scrub verifies the data in the storage pool using the checksum, and automatically fixes any issues it finds. The advice I saw online was to run this process about once a month, so I've enabled it in the early hours on the 1st of each month.&lt;/p&gt;
 &lt;pre&gt;&lt;code class="language-sh"&gt;# edit crontab as sudo
 $ sudo crontab -e
 
