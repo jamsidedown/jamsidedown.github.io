@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>How I build and host my blog</title>
+
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+                <meta name="description" content="How I build my blog with C#, Statiq.Web, and GitHub Pages">
+
+        <link rel="icon" href="https://robanderson.dev/images/favicon.png">
+
+        <link rel="stylesheet" href="css/blog.css">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Code+Pro&display=swap">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro&display=swap">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/base16/espresso.min.css">
+
+        <link rel=alternate title="Rob Anderson's Blog" type=application/rss+xml href="site.rss">
+
+        <script src="js/highlight.min.js"></script>
+    </head>
+    <body>
+        <div class="background"></div> 
+        <main>
+            <div class="terminal">
+                <div class="rendered">
+                    <a class="home" href="./">Home</a>
+                    <div class="centre">
+                        <h1>How I build and host my blog</h1>
+                            <span>2025-08-24</span>
+                    </div>
+                    <hr />
+                    <p>Despite <a href="hosting-setup">hosting websites on my home server and a VPS</a> I also make use of GitHub Pages to host this website and blog.</p>
+<p>I started using GitHub Pages in September 2020, as my broadband connection at the time didn't have a static IP address. I was relying on Duck DNS to have some sort of (semi)reliable connection to my home server via SSH, but Duck DNS only allowed for CNAME DNS records, so at the time I was only able to work out how to add subdomains rather than my top level domain.</p>
+<p>GitHub Pages allowed me to use my domain to host my static website for free, which back in 2020 was just a landing page that I spent a day or two faffing around with the CSS for. Part of the free hosting arrangement is that <a href="https://github.com/jamsidedown/jamsidedown.github.io">the repository is public</a>, so for anyone wanting to re-use any of the hacky CSS then they can do.</p>
+<p>A static website is one that is made up of plain old HTML, CSS, and a sprinkling of JavaScript. Unlike the ASP.NET Core websites I host on my server, static websites don't have a database, and don't add any custom content to the web pages when someone views a page.</p>
+<h2 id="setting-up-github-pages">Setting up GitHub Pages</h2>
+<p>The process for setting up a static website is really easy, I followed whatever the previous incarnation of <a href="https://docs.github.com/en/pages/quickstart">this quickstart article from GitHub</a> was, and configured my DNS settings with my domain registrar to point at GitHub. There's a <a href="https://github.com/jamsidedown/jamsidedown.github.io/blob/main/CNAME"><code>CNAME</code> file</a> in the root of the repository, but I think that's the only configuration I really had to do.</p>
+<p>The <code>Pages</code> section of the repository does the majority of the heavy lifting if you're happy with a static site</p>
+<p><img src="images/github-pages-config.png" alt="screenshot of github pages config" /></p>
+<p>Deploying to the website is done automatically by GitHub Actions whenever I push to the <code>main</code> branch of the repository. It's possible to use a custom build process, but I find it easiest just to add HTML files directly to my repository.</p>
+<h2 id="the-blog">The blog</h2>
+<p>The blog section of my website is a little more involved, as I wanted to be able to write Markdown that could be converted to HTML for me.</p>
+<p>I know Jekyll (Built into GitHub Pages) can handle the Markdown to HTML conversion for me, but my desire to use .NET wherever I can led me to using <a href="https://github.com/statiqdev/Statiq.Web">Statiq.Web</a>.</p>
+<p>Statiq.Web allows me to use a standard Razor Pages template, and write all of my individual posts using Markdown. I use <code>dotnet run</code> to convert all of the Markdown to HTML, which I can then copy across to my website's <code>/blog</code> directory.</p>
+<p>It also generates an RSS feed and a sitemap, and includes posts based on the presence of a <code>Date</code> attribute in the header of the Markdown file.</p>
+<p>It's currently a bit of a manual process, but I don't mind as it gives me some feeling of control, and I can ensure that my many unpublished drafts don't accidentally get included on my live site.</p>
+<p>The blog's repository isn't public, but I'll share some of my config here to hopefully help anyone wanting to replicate a similar setup in the future.</p>
+<h3 id="some-code">Some code</h3>
+<p>Adding Statiq.Web is as simple as adding the <a href="https://www.nuget.org/packages/Statiq.Web">NuGet package</a> to my <code>csproj</code> file.</p>
+<pre><code class="language-sh">dotnet add package Statiq.Web --version 1.0.0-beta.60
+</code></pre>
+<p><code>Program.cs</code> does a lot of the work</p>
+<pre><code class="language-csharp">// Program.cs
+using Blog;
+
+await Bootstrapper
+    .Factory
+    .CreateWeb(args)
+    .AddSetting(&quot;Host&quot;, Constants.Host)
+    .AddSetting(&quot;LinkRoot&quot;, Constants.LinkRoot)
+    .AddSetting(&quot;LinksUseHttps&quot;, true)
+    .RunAsync();
+</code></pre>
+<pre><code class="language-csharp">// Constants.cs
+namespace Blog;
+
+public class Constants
+{
+    public const string Host = &quot;robanderson.dev&quot;;
+    public const string LinkRoot = &quot;/blog&quot;;
+    public const string Url = $&quot;https://{Host}{LinkRoot}&quot;;
+}
+</code></pre>
+<p>Then the remaining config is done through a couple of <code>yaml</code> files and the Razor page template.</p>
+<pre><code class="language-yaml"># theme/settings.yaml
+SiteTitle: &quot;Blog&quot;
+PostSources: &quot;*.md&quot;
+Layout: _layout.cshtml
+</code></pre>
+<pre><code class="language-yaml"># input/site.yaml
+FeedRss: true
+FeedTitle: =&gt; &quot;Rob Anderson's Blog&quot;
+FeedLink: =&gt; Constants.Url
+FeedSources: =&gt; GetString(&quot;PostSources&quot;)
+FeedFilter: =&gt; !string.IsNullOrEmpty(GetString(&quot;Date&quot;))
+FeedAuthor: Rob Anderson
+FeedItemTitle: =&gt; GetString(&quot;Title&quot;)
+FeedItemLink: =&gt; $&quot;{Constants.Url}/&quot; + GetString(&quot;Destination&quot;)
+FeedItemDescription: =&gt; GetString(&quot;Meta&quot;)
+FeedItemPublished: =&gt; GetDateTime(&quot;Date&quot;)
+FeedOrderKey: GetString(&quot;Published&quot;)
+FeedOrderDescending: true
+FeedSize: 10
+</code></pre>
+<p><code>input/site.yaml</code> has the config for generating RSS feeds too, though I haven't worked out yet which of the properties are optional, and which are required; either way it works. 🤷</p>
+<pre><code class="language-html">&lt;!-- theme/input/_layout.cshtml --&gt;
+&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+    &lt;head&gt;
+        &lt;meta charset=&quot;utf-8&quot;&gt;
+        &lt;title&gt;&#64;Document.GetString(&quot;Title&quot;)&lt;/title&gt;
+
+        &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+        &#64;{
+            var meta = Document.GetString(&quot;Meta&quot;);
+            if (!string.IsNullOrEmpty(meta))
+            {
+                &lt;meta name=&quot;description&quot; content=&quot;&#64;meta&quot;&gt;
+            }
+        }
+
+        &lt;link rel=&quot;icon&quot; href=&quot;https://robanderson.dev/images/favicon.png&quot;&gt;
+
+        &lt;link rel=&quot;stylesheet&quot; href=&quot;css/blog.css&quot;&gt;
+        &lt;link rel=&quot;stylesheet&quot; href=&quot;https://fonts.googleapis.com/css?family=Source+Code+Pro&amp;display=swap&quot;&gt;
+        &lt;link rel=&quot;stylesheet&quot; href=&quot;https://fonts.googleapis.com/css?family=Source+Sans+Pro&amp;display=swap&quot;&gt;
+        &lt;link rel=&quot;stylesheet&quot; href=&quot;https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/base16/espresso.min.css&quot;&gt;
+
+        &lt;link rel=alternate title=&quot;Rob Anderson's Blog&quot; type=application/rss+xml href=&quot;site.rss&quot;&gt;
+
+        &lt;script src=&quot;js/highlight.min.js&quot;&gt;&lt;/script&gt;
+    &lt;/head&gt;
+    &lt;body&gt;
+        &lt;div class=&quot;background&quot;&gt;&lt;/div&gt; 
+        &lt;main&gt;
+            &lt;div class=&quot;terminal&quot;&gt;
+                &lt;div class=&quot;rendered&quot;&gt;
+                    &#64;{
+                        var home = Document.GetBool(&quot;IsHome&quot;) ? &quot;../&quot; : &quot;./&quot;;
+                    }
+                    &lt;a class=&quot;home&quot; href=&quot;&#64;home&quot;&gt;Home&lt;/a&gt;
+                    &lt;div class=&quot;centre&quot;&gt;
+                        &lt;h1&gt;&#64;Document.GetString(&quot;Title&quot;)&lt;/h1&gt;
+                        &#64;{
+                            var date = Document.GetString(&quot;Date&quot;);
+                        }
+                        &#64;if (!string.IsNullOrEmpty(date))
+                        {
+                            &lt;span&gt;&#64;date&lt;/span&gt;
+                        }
+                    &lt;/div&gt;
+                    &lt;hr /&gt;
+                    &#64;RenderBody()
+                    &lt;hr /&gt;
+                    &#64;{
+                        var startYear = 2023;
+                        var currentYear = DateTime.Now.Year;
+                        var copyrightYears = startYear == currentYear ? $&quot;{currentYear}&quot; : $&quot;{startYear}-{currentYear}&quot;;
+                        var copyrightStatement = $&quot;© {copyrightYears} Rob Anderson&quot;;
+                        &lt;div class=&quot;centre&quot;&gt;&#64;copyrightStatement&lt;/div&gt;
+                    }
+                &lt;/div&gt;
+            &lt;/div&gt;
+        &lt;/main&gt;
+        &lt;script&gt;
+            // add the syntax highlighting
+            document.addEventListener('DOMContentLoaded', (event) =&gt; {
+                document.querySelectorAll('code').forEach((el) =&gt; {
+                    hljs.highlightElement(el);
+                });
+            });
+
+            // external links open in a new tab
+            window.onload = () =&gt; {
+                for (const link of document.getElementsByTagName('a')) {
+                    if (!link.href.startsWith('https://robanderson.dev')) {
+                        link.target = '_blank';
+                    }
+                }
+            };
+        &lt;/script&gt;
+    &lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+<p>The <code>&#64;RenderBody()</code> function call is what takes the content of each Markdown page and adds the rendered HTML in.</p>
+<p>I also have a landing page to list the blog posts</p>
+<pre><code class="language-html">&lt;!-- input/index.cshtml --&gt;
+Title: Rob's Blog
+IsHome: true
+---
+&#64;{
+    IDocument[] posts = Outputs
+        .FromPipeline(&quot;Content&quot;)
+        .FilterSources(Document.GetString(&quot;PostSources&quot;))
+        .Where(doc =&gt; !string.IsNullOrEmpty(doc.GetString(&quot;Date&quot;)))
+        .OrderByDescending(doc =&gt; doc.GetString(&quot;Date&quot;))
+        .ToArray();
+    
+    foreach (var post in posts)
+    {
+        &lt;div class=&quot;post&quot;&gt;
+            &lt;span&gt;&#64;post.GetString(&quot;Date&quot;)&lt;/span&gt;
+            &#64;{
+            var link = $&quot;./{post.Destination}&quot;;
+            var title = post.GetString(&quot;Title&quot;);
+            &lt;a href=&quot;&#64;link&quot;&gt;&#64;title&lt;/a&gt;
+            }
+        &lt;/div&gt;
+    }
+}
+</code></pre>
+<p>The line <code>.Where(doc =&gt; !string.IsNullOrEmpty(doc.GetString(&quot;Date&quot;)))</code> is what performs the filtering for live/draft blog posts, based on the headers of each post.</p>
+<p>E.g. for the <code>hosting-setup</code> post (file at <code>input/hosting-setup.md</code>)</p>
+<pre><code class="language-markdown">Title: My hosting setup
+Date: 2025-04-30
+Meta: Securing access to Ubuntu Server with Tailscale and Cloudflare Tunnels
+---
+
+This is a short(ish) blog post about...
+</code></pre>
+<p>The overall effect <a href="https://github.com/jamsidedown/jamsidedown.github.io/blob/main/blog/hosting-setup.html">can be seen on GitHub</a>.</p>
+<h2 id="closing-notes">Closing notes</h2>
+<p>Hopefully this helps someone else set up their own website or blog and host it for free. I think this is a great exercise for junior developers trying to break into the industry, as it gives them a place to show off their skills and learn something new.</p>
+<p><code>.dev</code> domains cost around £10 per year, so it really is an affordable way to showcase their coding and start their brand.</p>
+
+                    <hr />
+                        <div class="centre">&#xA9; 2023-2025 Rob Anderson</div>
+                </div>
+            </div>
+        </main>
+        <script>
+            document.addEventListener('DOMContentLoaded', (event) => {
+                document.querySelectorAll('code').forEach((el) => {
+                    hljs.highlightElement(el);
+                });
+            });
+
+            window.onload = () => {
+                for (const link of document.getElementsByTagName('a')) {
+                    if (!link.href.startsWith('https://robanderson.dev')) {
+                        link.target = '_blank';
+                    }
+                }
+            };
+        </script>
+    </body>
+</html>

@@ -6,8 +6,200 @@
 		<description />
 		<copyright>2025</copyright>
 		<managingEditor>Rob Anderson</managingEditor>
-		<pubDate>Mon, 18 Aug 2025 09:32:00 GMT</pubDate>
-		<lastBuildDate>Mon, 18 Aug 2025 09:32:00 GMT</lastBuildDate>
+		<pubDate>Sun, 24 Aug 2025 12:31:11 GMT</pubDate>
+		<lastBuildDate>Sun, 24 Aug 2025 12:31:11 GMT</lastBuildDate>
+		<item>
+			<title>How I build and host my blog</title>
+			<link>https://robanderson.dev/blog/building-my-blog.html</link>
+			<description>How I build my blog with C#, Statiq.Web, and GitHub Pages</description>
+			<guid>https://robanderson.dev/blog/building-my-blog</guid>
+			<pubDate>Sun, 24 Aug 2025 00:00:00 GMT</pubDate>
+			<content:encoded>&lt;p&gt;Despite &lt;a href="https://robanderson.dev/blog/hosting-setup"&gt;hosting websites on my home server and a VPS&lt;/a&gt; I also make use of GitHub Pages to host this website and blog.&lt;/p&gt;
+&lt;p&gt;I started using GitHub Pages in September 2020, as my broadband connection at the time didn't have a static IP address. I was relying on Duck DNS to have some sort of (semi)reliable connection to my home server via SSH, but Duck DNS only allowed for CNAME DNS records, so at the time I was only able to work out how to add subdomains rather than my top level domain.&lt;/p&gt;
+&lt;p&gt;GitHub Pages allowed me to use my domain to host my static website for free, which back in 2020 was just a landing page that I spent a day or two faffing around with the CSS for. Part of the free hosting arrangement is that &lt;a href="https://github.com/jamsidedown/jamsidedown.github.io"&gt;the repository is public&lt;/a&gt;, so for anyone wanting to re-use any of the hacky CSS then they can do.&lt;/p&gt;
+&lt;p&gt;A static website is one that is made up of plain old HTML, CSS, and a sprinkling of JavaScript. Unlike the ASP.NET Core websites I host on my server, static websites don't have a database, and don't add any custom content to the web pages when someone views a page.&lt;/p&gt;
+&lt;h2 id="setting-up-github-pages"&gt;Setting up GitHub Pages&lt;/h2&gt;
+&lt;p&gt;The process for setting up a static website is really easy, I followed whatever the previous incarnation of &lt;a href="https://docs.github.com/en/pages/quickstart"&gt;this quickstart article from GitHub&lt;/a&gt; was, and configured my DNS settings with my domain registrar to point at GitHub. There's a &lt;a href="https://github.com/jamsidedown/jamsidedown.github.io/blob/main/CNAME"&gt;&lt;code&gt;CNAME&lt;/code&gt; file&lt;/a&gt; in the root of the repository, but I think that's the only configuration I really had to do.&lt;/p&gt;
+&lt;p&gt;The &lt;code&gt;Pages&lt;/code&gt; section of the repository does the majority of the heavy lifting if you're happy with a static site&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://robanderson.dev/blog/images/github-pages-config.png" alt="screenshot of github pages config"&gt;&lt;/p&gt;
+&lt;p&gt;Deploying to the website is done automatically by GitHub Actions whenever I push to the &lt;code&gt;main&lt;/code&gt; branch of the repository. It's possible to use a custom build process, but I find it easiest just to add HTML files directly to my repository.&lt;/p&gt;
+&lt;h2 id="the-blog"&gt;The blog&lt;/h2&gt;
+&lt;p&gt;The blog section of my website is a little more involved, as I wanted to be able to write Markdown that could be converted to HTML for me.&lt;/p&gt;
+&lt;p&gt;I know Jekyll (Built into GitHub Pages) can handle the Markdown to HTML conversion for me, but my desire to use .NET wherever I can led me to using &lt;a href="https://github.com/statiqdev/Statiq.Web"&gt;Statiq.Web&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;Statiq.Web allows me to use a standard Razor Pages template, and write all of my individual posts using Markdown. I use &lt;code&gt;dotnet run&lt;/code&gt; to convert all of the Markdown to HTML, which I can then copy across to my website's &lt;code&gt;/blog&lt;/code&gt; directory.&lt;/p&gt;
+&lt;p&gt;It also generates an RSS feed and a sitemap, and includes posts based on the presence of a &lt;code&gt;Date&lt;/code&gt; attribute in the header of the Markdown file.&lt;/p&gt;
+&lt;p&gt;It's currently a bit of a manual process, but I don't mind as it gives me some feeling of control, and I can ensure that my many unpublished drafts don't accidentally get included on my live site.&lt;/p&gt;
+&lt;p&gt;The blog's repository isn't public, but I'll share some of my config here to hopefully help anyone wanting to replicate a similar setup in the future.&lt;/p&gt;
+&lt;h3 id="some-code"&gt;Some code&lt;/h3&gt;
+&lt;p&gt;Adding Statiq.Web is as simple as adding the &lt;a href="https://www.nuget.org/packages/Statiq.Web"&gt;NuGet package&lt;/a&gt; to my &lt;code&gt;csproj&lt;/code&gt; file.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;dotnet add package Statiq.Web --version 1.0.0-beta.60
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;code&gt;Program.cs&lt;/code&gt; does a lot of the work&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-csharp"&gt;// Program.cs
+using Blog;
+
+await Bootstrapper
+    .Factory
+    .CreateWeb(args)
+    .AddSetting("Host", Constants.Host)
+    .AddSetting("LinkRoot", Constants.LinkRoot)
+    .AddSetting("LinksUseHttps", true)
+    .RunAsync();
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code class="language-csharp"&gt;// Constants.cs
+namespace Blog;
+
+public class Constants
+{
+    public const string Host = "robanderson.dev";
+    public const string LinkRoot = "/blog";
+    public const string Url = $"https://{Host}{LinkRoot}";
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Then the remaining config is done through a couple of &lt;code&gt;yaml&lt;/code&gt; files and the Razor page template.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-yaml"&gt;# theme/settings.yaml
+SiteTitle: "Blog"
+PostSources: "*.md"
+Layout: _layout.cshtml
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code class="language-yaml"&gt;# input/site.yaml
+FeedRss: true
+FeedTitle: =&amp;gt; "Rob Anderson's Blog"
+FeedLink: =&amp;gt; Constants.Url
+FeedSources: =&amp;gt; GetString("PostSources")
+FeedFilter: =&amp;gt; !string.IsNullOrEmpty(GetString("Date"))
+FeedAuthor: Rob Anderson
+FeedItemTitle: =&amp;gt; GetString("Title")
+FeedItemLink: =&amp;gt; $"{Constants.Url}/" + GetString("Destination")
+FeedItemDescription: =&amp;gt; GetString("Meta")
+FeedItemPublished: =&amp;gt; GetDateTime("Date")
+FeedOrderKey: GetString("Published")
+FeedOrderDescending: true
+FeedSize: 10
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;code&gt;input/site.yaml&lt;/code&gt; has the config for generating RSS feeds too, though I haven't worked out yet which of the properties are optional, and which are required; either way it works. 🤷&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-html"&gt;&amp;lt;!-- theme/input/_layout.cshtml --&amp;gt;
+&amp;lt;!DOCTYPE html&amp;gt;
+&amp;lt;html lang="en"&amp;gt;
+    &amp;lt;head&amp;gt;
+        &amp;lt;meta charset="utf-8"&amp;gt;
+        &amp;lt;title&amp;gt;@Document.GetString("Title")&amp;lt;/title&amp;gt;
+
+        &amp;lt;meta name="viewport" content="width=device-width, initial-scale=1"&amp;gt;
+        @{
+            var meta = Document.GetString("Meta");
+            if (!string.IsNullOrEmpty(meta))
+            {
+                &amp;lt;meta name="description" content="@meta"&amp;gt;
+            }
+        }
+
+        &amp;lt;link rel="icon" href="https://robanderson.dev/images/favicon.png"&amp;gt;
+
+        &amp;lt;link rel="stylesheet" href="css/blog.css"&amp;gt;
+        &amp;lt;link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Code+Pro&amp;amp;display=swap"&amp;gt;
+        &amp;lt;link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro&amp;amp;display=swap"&amp;gt;
+        &amp;lt;link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/base16/espresso.min.css"&amp;gt;
+
+        &amp;lt;link rel=alternate title="Rob Anderson's Blog" type=application/rss+xml href="site.rss"&amp;gt;
+
+        &amp;lt;script src="js/highlight.min.js"&amp;gt;&amp;lt;/script&amp;gt;
+    &amp;lt;/head&amp;gt;
+    &amp;lt;body&amp;gt;
+        &amp;lt;div class="background"&amp;gt;&amp;lt;/div&amp;gt; 
+        &amp;lt;main&amp;gt;
+            &amp;lt;div class="terminal"&amp;gt;
+                &amp;lt;div class="rendered"&amp;gt;
+                    @{
+                        var home = Document.GetBool("IsHome") ? "../" : "./";
+                    }
+                    &amp;lt;a class="home" href="@home"&amp;gt;Home&amp;lt;/a&amp;gt;
+                    &amp;lt;div class="centre"&amp;gt;
+                        &amp;lt;h1&amp;gt;@Document.GetString("Title")&amp;lt;/h1&amp;gt;
+                        @{
+                            var date = Document.GetString("Date");
+                        }
+                        @if (!string.IsNullOrEmpty(date))
+                        {
+                            &amp;lt;span&amp;gt;@date&amp;lt;/span&amp;gt;
+                        }
+                    &amp;lt;/div&amp;gt;
+                    &amp;lt;hr /&amp;gt;
+                    @RenderBody()
+                    &amp;lt;hr /&amp;gt;
+                    @{
+                        var startYear = 2023;
+                        var currentYear = DateTime.Now.Year;
+                        var copyrightYears = startYear == currentYear ? $"{currentYear}" : $"{startYear}-{currentYear}";
+                        var copyrightStatement = $"© {copyrightYears} Rob Anderson";
+                        &amp;lt;div class="centre"&amp;gt;@copyrightStatement&amp;lt;/div&amp;gt;
+                    }
+                &amp;lt;/div&amp;gt;
+            &amp;lt;/div&amp;gt;
+        &amp;lt;/main&amp;gt;
+        &amp;lt;script&amp;gt;
+            // add the syntax highlighting
+            document.addEventListener('DOMContentLoaded', (event) =&amp;gt; {
+                document.querySelectorAll('code').forEach((el) =&amp;gt; {
+                    hljs.highlightElement(el);
+                });
+            });
+
+            // external links open in a new tab
+            window.onload = () =&amp;gt; {
+                for (const link of document.getElementsByTagName('a')) {
+                    if (!link.href.startsWith('https://robanderson.dev')) {
+                        link.target = '_blank';
+                    }
+                }
+            };
+        &amp;lt;/script&amp;gt;
+    &amp;lt;/body&amp;gt;
+&amp;lt;/html&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The &lt;code&gt;@RenderBody()&lt;/code&gt; function call is what takes the content of each Markdown page and adds the rendered HTML in.&lt;/p&gt;
+&lt;p&gt;I also have a landing page to list the blog posts&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-html"&gt;&amp;lt;!-- input/index.cshtml --&amp;gt;
+Title: Rob's Blog
+IsHome: true
+---
+@{
+    IDocument[] posts = Outputs
+        .FromPipeline("Content")
+        .FilterSources(Document.GetString("PostSources"))
+        .Where(doc =&amp;gt; !string.IsNullOrEmpty(doc.GetString("Date")))
+        .OrderByDescending(doc =&amp;gt; doc.GetString("Date"))
+        .ToArray();
+    
+    foreach (var post in posts)
+    {
+        &amp;lt;div class="post"&amp;gt;
+            &amp;lt;span&amp;gt;@post.GetString("Date")&amp;lt;/span&amp;gt;
+            @{
+            var link = $"./{post.Destination}";
+            var title = post.GetString("Title");
+            &amp;lt;a href="@link"&amp;gt;@title&amp;lt;/a&amp;gt;
+            }
+        &amp;lt;/div&amp;gt;
+    }
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The line &lt;code&gt;.Where(doc =&amp;gt; !string.IsNullOrEmpty(doc.GetString("Date")))&lt;/code&gt; is what performs the filtering for live/draft blog posts, based on the headers of each post.&lt;/p&gt;
+&lt;p&gt;E.g. for the &lt;code&gt;hosting-setup&lt;/code&gt; post (file at &lt;code&gt;input/hosting-setup.md&lt;/code&gt;)&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-markdown"&gt;Title: My hosting setup
+Date: 2025-04-30
+Meta: Securing access to Ubuntu Server with Tailscale and Cloudflare Tunnels
+---
+
+This is a short(ish) blog post about...
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The overall effect &lt;a href="https://github.com/jamsidedown/jamsidedown.github.io/blob/main/blog/hosting-setup.html"&gt;can be seen on GitHub&lt;/a&gt;.&lt;/p&gt;
+&lt;h2 id="closing-notes"&gt;Closing notes&lt;/h2&gt;
+&lt;p&gt;Hopefully this helps someone else set up their own website or blog and host it for free. I think this is a great exercise for junior developers trying to break into the industry, as it gives them a place to show off their skills and learn something new.&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;.dev&lt;/code&gt; domains cost around £10 per year, so it really is an affordable way to showcase their coding and start their brand.&lt;/p&gt;
+</content:encoded>
+			<comments xmlns="http://purl.org/rss/1.0/modules/slash/">0</comments>
+		</item>
 		<item>
 			<title>Upgrading Adele and our home network</title>
 			<link>https://robanderson.dev/blog/upgrading-adele.html</link>
