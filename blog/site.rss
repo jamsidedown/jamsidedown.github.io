@@ -6,8 +6,8 @@
 		<description />
 		<copyright>2025</copyright>
 		<managingEditor>Rob Anderson</managingEditor>
-		<pubDate>Sun, 24 Aug 2025 12:31:11 GMT</pubDate>
-		<lastBuildDate>Sun, 24 Aug 2025 12:31:11 GMT</lastBuildDate>
+		<pubDate>Sun, 24 Aug 2025 12:38:34 GMT</pubDate>
+		<lastBuildDate>Sun, 24 Aug 2025 12:38:34 GMT</lastBuildDate>
 		<item>
 			<title>How I build and host my blog</title>
 			<link>https://robanderson.dev/blog/building-my-blog.html</link>
@@ -17,6 +17,7 @@
 			<content:encoded>&lt;p&gt;Despite &lt;a href="https://robanderson.dev/blog/hosting-setup"&gt;hosting websites on my home server and a VPS&lt;/a&gt; I also make use of GitHub Pages to host this website and blog.&lt;/p&gt;
 &lt;p&gt;I started using GitHub Pages in September 2020, as my broadband connection at the time didn't have a static IP address. I was relying on Duck DNS to have some sort of (semi)reliable connection to my home server via SSH, but Duck DNS only allowed for CNAME DNS records, so at the time I was only able to work out how to add subdomains rather than my top level domain.&lt;/p&gt;
 &lt;p&gt;GitHub Pages allowed me to use my domain to host my static website for free, which back in 2020 was just a landing page that I spent a day or two faffing around with the CSS for. Part of the free hosting arrangement is that &lt;a href="https://github.com/jamsidedown/jamsidedown.github.io"&gt;the repository is public&lt;/a&gt;, so for anyone wanting to re-use any of the hacky CSS then they can do.&lt;/p&gt;
+&lt;p&gt;By default, GitHub Pages provides you with your own free subdomain at &lt;code&gt;&amp;lt;username&amp;gt;.github.io&lt;/code&gt;, but it's very straight forward to add your own domain.&lt;/p&gt;
 &lt;p&gt;A static website is one that is made up of plain old HTML, CSS, and a sprinkling of JavaScript. Unlike the ASP.NET Core websites I host on my server, static websites don't have a database, and don't add any custom content to the web pages when someone views a page.&lt;/p&gt;
 &lt;h2 id="setting-up-github-pages"&gt;Setting up GitHub Pages&lt;/h2&gt;
 &lt;p&gt;The process for setting up a static website is really easy, I followed whatever the previous incarnation of &lt;a href="https://docs.github.com/en/pages/quickstart"&gt;this quickstart article from GitHub&lt;/a&gt; was, and configured my DNS settings with my domain registrar to point at GitHub. There's a &lt;a href="https://github.com/jamsidedown/jamsidedown.github.io/blob/main/CNAME"&gt;&lt;code&gt;CNAME&lt;/code&gt; file&lt;/a&gt; in the root of the repository, but I think that's the only configuration I really had to do.&lt;/p&gt;
