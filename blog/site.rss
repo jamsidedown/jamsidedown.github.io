@@ -6,8 +6,56 @@
 		<description />
 		<copyright>2025</copyright>
 		<managingEditor>Rob Anderson</managingEditor>
-		<pubDate>Sun, 24 Aug 2025 12:38:34 GMT</pubDate>
-		<lastBuildDate>Sun, 24 Aug 2025 12:38:34 GMT</lastBuildDate>
+		<pubDate>Wed, 19 Nov 2025 23:29:09 GMT</pubDate>
+		<lastBuildDate>Wed, 19 Nov 2025 23:29:09 GMT</lastBuildDate>
+		<item>
+			<title>Finishing my network upgrade: running CAT6 ethernet</title>
+			<link>https://robanderson.dev/blog/cat6-to-my-desk.html</link>
+			<description>Running CAT6 ethernet around my house to improve my network speed</description>
+			<guid>https://robanderson.dev/blog/cat6-to-my-desk</guid>
+			<pubDate>Wed, 19 Nov 2025 00:00:00 GMT</pubDate>
+			<content:encoded>&lt;h2 id="background"&gt;Background&lt;/h2&gt;
+&lt;p&gt;This post continues with my home network and hosting setup mentioned in a &lt;a href="https://robanderson.dev/blog/dell-t160"&gt;few&lt;/a&gt; &lt;a href="https://robanderson.dev/blog/hosting-setup"&gt;different&lt;/a&gt; &lt;a href="https://robanderson.dev/blog/upgrading-adele"&gt;posts&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;When I finished up last time I'd upgraded my home internet to gigabit FTTP, discovered my Powerline adapters were limited to around 170Mbps with the wiring in my house, and bought a new TP Link Deco BE25 3-pack to try to improve the network speeds around the house.&lt;/p&gt;
+&lt;p&gt;I also bought a new 2.5Gb network switch, and a pair of 2.5Gb network cards; one for my server, and one for my desktop.&lt;/p&gt;
+&lt;p&gt;While I was able to take advantage of the &amp;gt;1Gb speeds between my PC and server, I was still (slightly) limited by the mesh network operating wirelessly, and was limited to 500-700Mbps on my PC from the speed tests I ran. While significantly better than the 170Mbps I was previously capped at, it still wasn't quite what we were paying for.&lt;/p&gt;
+&lt;h2 id="wireless"&gt;Wire&lt;del&gt;less&lt;/del&gt;&lt;/h2&gt;
+&lt;h3 id="plan-1"&gt;Plan 1&lt;/h3&gt;
+&lt;p&gt;A plan developed over the next couple of months to run an ethernet cable from the primary router near the kitchen to the dining room node next to my desk. My server and desktop were attached to the dining room node by ethernet already via the 2.5Gb network switch, so running one cable across the house would provide the upgrade I was looking for.&lt;/p&gt;
+&lt;p&gt;My initial plan involved pulling off skirting boards and using my palm router to carve channels for cables in the back of them. Unfortunately the odds of me pulling off and reinstalling all the skirting boards without damaging them was pretty slim, so that idea was scrapped.&lt;/p&gt;
+&lt;h3 id="plan-2"&gt;Plan 2&lt;/h3&gt;
+&lt;p&gt;The next idea was to attach cable clips to my skirting boards at regular intervals to help manage the cables a bit better, running them along some of the decorative channels. This seemed a decent enough idea, so I started buying parts.&lt;/p&gt;
+&lt;p&gt;I bought a &lt;a href="https://cpc.farnell.com/pro-power/ppb0014/cable-category-6-white-100m/dp/CB23301"&gt;100m reel of CAT6 ethernet cable from CPC Farnell&lt;/a&gt; for £56.03 including shipping, though it's more of a light-grey than a white.&lt;/p&gt;
+&lt;p&gt;I bought two &lt;a href="https://www.screwfix.com/p/essentials-1-gang-surface-pattress-back-box-25mm/9474d"&gt;25mm surface-mount backboxes&lt;/a&gt; (£0.59 each), two &lt;a href="https://www.screwfix.com/p/british-general-800-series-1-gang-rj45-ethernet-socket-white-with-colour-matched-inserts/815xg"&gt;CAT6 RJ45 sockets&lt;/a&gt; (£6.89 each), and a box of &lt;a href="https://www.screwfix.com/p/vimark-white-round-cable-clips-5-7mm-100-pack/519vt"&gt;cable clips&lt;/a&gt; (£1.79 for 100) from Screwfix, and started to plan a route.&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://robanderson.dev/blog/images/cat6/socket.png" alt="A CAT6 ethernet socket"&gt;&lt;/p&gt;
+&lt;p&gt;I had to go round two french doors, navigate along skirting boards under a radiator, round several corners, and work out how to go through two doorways without ruining the house (as much as possible).&lt;/p&gt;
+&lt;h4 id="plan-2.5"&gt;Plan 2.5&lt;/h4&gt;
+&lt;p&gt;The skirting boards have a ~22mm gap in the decorative bumps near the top, and at some point I stumbled upon D-Line trunking. They have 20mm semicircular cable trunking that (as it turns out) fits perfectly in the aforementioned gap.&lt;/p&gt;
+&lt;p&gt;Some rooms have white skirting boards, and some magnolia, so I bought a mix of both colours of D-Line's &lt;a href="https://d-line-it.com/micro-trunking/"&gt;Micro Trunking&lt;/a&gt; which set me back a bit. £19 for 8m of the &lt;a href="https://www.diy.com/departments/d-line-white-semi-circle-decorative-trunking-h-10mm-pack-of-4/5056335602711_BQ.prd"&gt;white trunking&lt;/a&gt;, and £50.75 for 14m of &lt;a href="https://www.diy.com/departments/d-line-magnolia-semi-circle-decorative-trunking-d-20mm/5060226648375_BQ.prd"&gt;magnolia trunking&lt;/a&gt; from B&amp;amp;Q.&lt;/p&gt;
+&lt;p&gt;The revised plan involved running the cable from one socket along skirting boards, along the floor under one french door, through two doorframes, over the other french door, and terminating at a socket under my desk (close to the network switch). At each point I'd be using the appropriate colour trunking and trying to keep it as tidy as possible.&lt;/p&gt;
+&lt;p&gt;To go through the internal walls, I decided that drilling a larger-than-required hole and lining it with plastic pipe would reduce the change I damage the wall or the cable when dragging the cable through. As most conduit seems to be &amp;gt;=20mm in diameter, I ended up buying a &lt;a href="https://www.screwfix.com/p/jg-speedfit-15bpex-32499-push-fit-pe-x-pipe-15mm-x-2m/32499"&gt;15mm PVC pipe&lt;/a&gt; for £4.02 from Screwfix.&lt;/p&gt;
+&lt;h2 id="installing"&gt;Installing&lt;/h2&gt;
+&lt;p&gt;Cutting the lengths of trunking to size was very easy with a cheap mitre block and saw, and sticking them to the wall was simple using the built-in adhesive.&lt;/p&gt;
+&lt;p&gt;Drilling the holes in the walls near the dooframes ended up being a bit of a pain, but there are now two 16mm holes from one skirting board to the other with a 15mm pipe lining the hole. They're mostly hidden behind the trunking, so not much of an eyesore thankfully.&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://robanderson.dev/blog/images/cat6/skirting.jpg" alt="Cable trunking hiding the hole in my skirting board"&gt;&lt;/p&gt;
+&lt;p&gt;Terminating the cables was the part of the process I was most nervous about, as there was a limited number of times I could mess it up in the kitchen before I'd have to adjust the whole cable run.&lt;/p&gt;
+&lt;p&gt;I gave myself ~1.5m of spare cable at my desk that I can hide behind a large wooden unit. This allowed me to try and fail to terminate the cable in the socket a couple of times without ruining the whole project.&lt;/p&gt;
+&lt;p&gt;It took me longer than I'd like to admit to realise I'd need an additional tool to wire up the ethernet to the socket, so for anyone planning on running your own cables, buy a &lt;a href="https://www.screwfix.com/p/philex-spring-action-punch-down-tool/67391"&gt;punch down tool&lt;/a&gt; (this one set me back £6.99).&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://robanderson.dev/blog/images/cat6/wired-socket.jpg" alt="Wired up RJ45 socket after snipping"&gt;&lt;/p&gt;
+&lt;h2 id="speed-test"&gt;Speed test&lt;/h2&gt;
+&lt;p&gt;I have tons of short ethernet cables, so I connected the kitchen socket to my router, and the socket near my desk to my network switch.&lt;/p&gt;
+&lt;p&gt;With the sockets wired up, but everything still hanging loose I checked in the TP Link Deco app, and could see that my dining room wireless node was showing as having a wired connection to the main router.&lt;/p&gt;
+&lt;p&gt;I ran a speed test on my desktop, and was seeing ~900Mbps down, and ~100Mbps up. Good so far!&lt;/p&gt;
+&lt;p&gt;I screwed the socket next to the primary router into the back box, and was happy to see that the speeds were the same; I hadn't wrecked anything when screwing the faceplate into the back box.&lt;/p&gt;
+&lt;p&gt;When I screwed in the socket near my desk however, the speed dropped to a solid 100Mbps down, and the LED on my network switch was showing the cable was operating in 100Mb mode. It had been a squeeze getting the faceplate attached to the backbox, and I must have bent the cable too sharply, or ruined the punched-down connections.&lt;/p&gt;
+&lt;h2 id="fixing-my-mistake"&gt;Fixing my mistake&lt;/h2&gt;
+&lt;p&gt;I snipped off around 20cm of the ethernet cable, but broke the backbox trying to widen the hole for the cable with my drill, so back to Screwfix I went to pick up another backbox and RJ45 socket. I opted for a &lt;a href="https://www.screwfix.com/p/vimark-pro-1-gang-surface-pattress-white-back-box-25mm/239pv"&gt;different backbox&lt;/a&gt; (£0.99) this time, hoping it'd be easier to fit my cable in.&lt;/p&gt;
+&lt;p&gt;Attempt 2 went much better, and I'm happy that I have the full broadband speeds we're paying for at my desk.&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://robanderson.dev/blog/images/cat6/speed-test.jpg" alt="Speed test results showing 925Mbps download and 108Mbps upload with 7ms ping"&gt;&lt;/p&gt;
+&lt;p&gt;I may try to run some of the spare ~80m of cable I have into the living room as I could use one of my spare 1Gb switches to provide a faster wired connection to our TV and consoles. That'll have to wait though, as I don't think my wife would be happy if I started drilling more holes in walls.&lt;/p&gt;
+</content:encoded>
+			<comments xmlns="http://purl.org/rss/1.0/modules/slash/">0</comments>
+		</item>
 		<item>
 			<title>How I build and host my blog</title>
 			<link>https://robanderson.dev/blog/building-my-blog.html</link>
