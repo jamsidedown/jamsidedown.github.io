@@ -4,10 +4,171 @@
 		<title>Rob Anderson's Blog</title>
 		<link>https://robanderson.dev/blog</link>
 		<description />
-		<copyright>2025</copyright>
+		<copyright>2026</copyright>
 		<managingEditor>Rob Anderson</managingEditor>
-		<pubDate>Wed, 19 Nov 2025 23:29:09 GMT</pubDate>
-		<lastBuildDate>Wed, 19 Nov 2025 23:29:09 GMT</lastBuildDate>
+		<pubDate>Sun, 11 Jan 2026 12:58:53 GMT</pubDate>
+		<lastBuildDate>Sun, 11 Jan 2026 12:58:53 GMT</lastBuildDate>
+		<item>
+			<title>Airplay streaming for under £40*</title>
+			<link>https://robanderson.dev/blog/airplay.html</link>
+			<description>Using the Raspberry Pi DAC+ to stream Airplay audio to my hi-fi</description>
+			<guid>https://robanderson.dev/blog/airplay</guid>
+			<pubDate>Sun, 11 Jan 2026 00:00:00 GMT</pubDate>
+			<content:encoded>&lt;p&gt;*If you already have an unused Raspberry Pi&lt;/p&gt;
+&lt;h2 id="preamble"&gt;Preamble&lt;/h2&gt;
+&lt;p&gt;My current client at work has regular software development show-and-tell sessions where a couple of developers within the company give short presentations on a topic of their choosing to the rest of the community.&lt;/p&gt;
+&lt;p&gt;One of the recent presentations was about someone using a few Raspberry Pis around their house as an open source alternative to something like Sonos. They were talking about the additional hardware required for a Pi to output decent quality audio, and the software they were using to play their music throughout their house.&lt;/p&gt;
+&lt;p&gt;The talk piqued my interest, and I was pleasantly surprised that DAC (digital to analogue converters) for the Raspberry Pi were significantly more affordable than I thought they'd be, and significantly cheaper than the majority of consumer-grade DACs available online.&lt;/p&gt;
+&lt;p&gt;The Audiolab M-DAC Mini I have connected to my PC set me back over £200 in 2020, so I was very interested to see if a comparable audio quality was possible with a very cheap Raspberry Pi DAC+ (£19.20 from The Pi Hut).&lt;/p&gt;
+&lt;h2 id="forming-a-plan"&gt;Forming a plan&lt;/h2&gt;
+&lt;p&gt;I already had a spare Raspberry Pi, power supply, and micro SD card that predictably were sitting unused in a drawer in my loft; as many Pis will be in the average tech enthusiast's house.&lt;/p&gt;
+&lt;p&gt;I also already own a pre-amplifier, a power amplifier, and a pair of speakers that have been hooked up to my turntable for several years now. I've acquired these for free as my Dad has upgraded his hi-fi setup over the years (nepotism at its best).&lt;/p&gt;
+&lt;p&gt;The minimum additional equipment required for me were the DAC+ hat, and an RCA cable as I don't have any spares.&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://robanderson.dev/blog/images/dac.png" alt="Raspberry Pi DAC wiring diagram"&gt;&lt;/p&gt;
+&lt;p&gt;I ended up buying a case for the Raspberry Pi, a heatsink, and a fan (that I've not yet installed as I'm not sure if it's necessary).&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Item&lt;/th&gt;
+&lt;th&gt;Cost (incl. tax)&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;a href="https://thepihut.com/products/iqaudio-dac"&gt;Raspberry Pi DAC+&lt;/a&gt;&lt;/td&gt;
+&lt;td&gt;£19.20&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;a href="https://thepihut.com/products/highpi-pro-case-for-iqaudio-dac-dac-pro-and-raspberry-pi-4"&gt;HighPi case&lt;/a&gt;&lt;/td&gt;
+&lt;td&gt;£11.40&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;a href="https://thepihut.com/products/rca-cable-2x-male-to-2x-male"&gt;RCA cable&lt;/a&gt;&lt;/td&gt;
+&lt;td&gt;£1.50&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;a href="https://thepihut.com/products/xl-raspberry-pi-4-heatsink"&gt;Heatsink&lt;/a&gt;&lt;/td&gt;
+&lt;td&gt;£2.00&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;a href="https://thepihut.com/products/highpi-pro-5v-fan-software-controlled"&gt;Fan&lt;/a&gt;&lt;/td&gt;
+&lt;td&gt;£5.00&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;/td&gt;
+&lt;td&gt;&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Total&lt;/td&gt;
+&lt;td&gt;£39.10&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;If you don't already have a spare Raspberry Pi, then a Pi 4 1GB is £33.60, or a Pi 5 1GB is £43.20. The official 15W power supply for the Pi 4 is £7.70, though the Pi 5 requires a beefier power supply, so the official 27W one will set you back £11.60. The official 256GB micro SD card costs £9.60, though this project definitely doesn't need anywhere near that much storage space; SD cards have just got very affordable.&lt;/p&gt;
+&lt;p&gt;In case you weren't keeping track this would mean an additional £50.90 for the Raspberry Pi 4, or £64.40 for the Pi 5 (still significantly cheaper than the average hi-fi DAC).&lt;/p&gt;
+&lt;h2 id="assembly"&gt;Assembly&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;Stick the heatsink to the chips on the Pi; the one I bought has a large surface area, covering multiple chips while being nice and short&lt;/li&gt;
+&lt;li&gt;Install the standoffs for the DAC by screwing the posts onto the Raspberry Pi&lt;/li&gt;
+&lt;li&gt;Install the DAC+ by carefully placing the 40 pins on the Pi into the socket on the DAC&lt;/li&gt;
+&lt;li&gt;Secure the DAC+ to the standoffs with the remaining screws&lt;/li&gt;
+&lt;li&gt;Open the case using the instructions on the side of the box&lt;/li&gt;
+&lt;li&gt;Push the Pi &amp;amp; DAC into the case where the plastic clips will hold it steady&lt;/li&gt;
+&lt;li&gt;Put the top of the case back on&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;img src="https://robanderson.dev/blog/images/pi-dac.jpg" alt="Mostly assembled Raspberry Pi DAC"&gt;&lt;/p&gt;
+&lt;h2 id="installing-an-os"&gt;Installing an OS&lt;/h2&gt;
+&lt;p&gt;Despite usually defaulting to Ubuntu, I opted for the 64-bit version of Raspbian Lite as I hoped it'd support the DAC+ out of the box, and Ubuntu Server for the Pi seems to take a lot longer to boot.&lt;/p&gt;
+&lt;p&gt;I flashed Raspbian onto the micro SD card using the &lt;a href="https://www.raspberrypi.com/software/"&gt;Raspberry Pi Imager&lt;/a&gt;, adding my username, password, and WiFi network. I use SSH to access all of my devices, so I &lt;a href="https://www.raspberrypi.com/documentation/computers/remote-access.html"&gt;enabled SSH and added a public key&lt;/a&gt; before flashing to my micro SD card. It's an old 16GB card, but for this I imagine I could have used an even smaller one.&lt;/p&gt;
+&lt;p&gt;I then installed the micro SD card into the Raspberry Pi, and booted it up.&lt;/p&gt;
+&lt;h2 id="setting-up-airplay"&gt;Setting up Airplay&lt;/h2&gt;
+&lt;p&gt;This section is the longest and most complex part of this post, but I had everything up and running in around 30 minutes.&lt;/p&gt;
+&lt;p&gt;The tool I'm using to play music via Airplay is &lt;a href="https://github.com/mikebrady/shairport-sync"&gt;shairport-sync&lt;/a&gt;, which includes a fantastic &lt;a href="https://github.com/mikebrady/shairport-sync/blob/master/BUILD.md"&gt;install guide&lt;/a&gt;. They also linked to the library for playing Apple encoded music: &lt;a href="https://github.com/mikebrady/alac"&gt;ALAC&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;I'll include all the commands I used, along with comments explaining why I've done something.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;# update existing packages
+$ sudo apt update
+$ sudo apt upgrade -y
+
+# install dependencies required for ALAC
+$ sudo apt install build-essential git autoconf automake libtool
+
+# clone the ALAC repository
+$ git clone https://github.com/mikebrady/alac.git
+
+# build and install ALAC
+$ cd alac
+$ autoreconf -fi
+$ ./configure
+$ make
+$ sudo make install
+$ sudo ldconfig
+
+# change back to home directory
+$ cd ~
+
+# install dependencies required for shairport-sync
+$ sudo apt install --no-install-recommends libpopt-dev libconfig-dev libasound2-dev \
+    avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev libplist-dev libsodium-dev \
+    libavutil-dev libavcodec-dev libavformat-dev uuid-dev libgcrypt-dev xxd systemd-dev
+
+# clone the shairport-sync repo
+$ git clone https://github.com/mikebrady/shairport-sync.git
+
+# build and install shairport-sync
+$ cd shairport-sync
+$ autoreconf -fi
+$ ./configure --sysconfdir=/etc --with-alsa --with-soxr \
+    --with-avahi --with-ssl=openssl --with-systemd
+$ make
+$ sudo make install
+
+# enable and start the shairport sync service
+$ sudo systemctl enable shairport-sync
+$ sudo systemctl start shairport-sync
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;By default, it may try to play through the incorrect audio interface, so you'll need to set a default output for shairport-sync to use by editing a config file.&lt;/p&gt;
+&lt;p&gt;Get the id of the DAC+&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;$ shairport-sync -h
+...
+    hardware output devices:
+      "hw:Headphones"
+      "hdmi:vc4hdmi0"
+      "hdmi:vc4hdmi1"
+      "hw:DAC"
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Here, the id I want to use is &lt;code&gt;hw:DAC&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;Edit the shairport config file&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;$ sudo nano /etc/shairport-sync.conf
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Scroll down with the arrow keys until you reach the line &lt;code&gt;alsa =&lt;/code&gt;. There should already be an opening curly bracket, so add the following 2 lines to make it look like:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-text"&gt;alsa =
+{
+    output_device = "hw:DAC";
+    mixer_control_name = "DAC";
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Save by pressing &lt;code&gt;Ctrl+o&lt;/code&gt;, then exit with &lt;code&gt;Ctrl+x&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;Now power off the Raspberry Pi with &lt;code&gt;sudo shutdown -h now&lt;/code&gt;.&lt;/p&gt;
+&lt;h2 id="wiring-it-up"&gt;Wiring it up&lt;/h2&gt;
+&lt;p&gt;At this point I took the Raspberry Pi over to my hi-fi, and connected the RCA cable from the Pi to my pre-amp.&lt;/p&gt;
+&lt;p&gt;I booted up the Pi, changed the input for the pre-amp from phono to CD, and found that after around 30 seconds I was able to select the Pi as the output from Apple Music on my phone.&lt;/p&gt;
+&lt;h2 id="what-about-the-fan"&gt;What about the fan?&lt;/h2&gt;
+&lt;p&gt;Having used 40mm fans in Raspberry Pis before, I know they can be a bit loud at an irritating pitch, so if I can avoid the fan noise that'd be nice. My plan is to leave the Pi DAC running 24x7 to reduce the number of times I switch it off at the plug and risk corrupting the OS on the SD card.&lt;/p&gt;
+&lt;p&gt;If the heatsink alone is enough to keep the Pi's temperature under control, then I'll just not bother installing the fan and accept that I've wasted £5.&lt;/p&gt;
+&lt;p&gt;I wrote a little script that logs the current temperature along with a timestamp to a text file, then called it every minute on the minute with a cron job.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;#!/bin/sh
+
+echo "$(date '+%H:%M:%S') $(sensors | grep temp1 | awk '{ print $2 }')" &amp;gt;&amp;gt; temps_$(date -I).log
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;After leaving the Pi running for a few hours playing a few albums, and it seemed to peak at around 47°C, which I think is perfectly acceptable. It also seems to sit comfortably around 40°C when not in use. The thermostat said the room was 18°C at the time, so I may need to reassess the fan in the summer.&lt;/p&gt;
+&lt;p&gt;Plotting the temperatures gives a nice flat graph:&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://robanderson.dev/blog/images/pi-dac-temp.png" alt="Temperature graph of the Pi topping out around 47°C"&gt;&lt;/p&gt;
+&lt;h2 id="conclusion"&gt;Conclusion&lt;/h2&gt;
+&lt;p&gt;I was surprised how cheap and easy it was to wirelessly connect my phone to my old hi-fi. Obviously there's an additional cost if you don't have a spare Raspberry Pi, but based on conversations at work I think there's a huge number of techy people with RPis sitting in drawers collecting dust.&lt;/p&gt;
+&lt;p&gt;Apple Music allows me to play lossless CD-quality music, and the DAC+ handles it all well and sounds good to my ears - though that's more likely due to the rest of the setup more than the DAC.&lt;/p&gt;
+&lt;p&gt;Either way, it's significantly cheaper than buying a proper network streamer, and has made me very happy that I can play music that I don't own on vinyl. Especially since some albums are very expensive and difficult to find.&lt;/p&gt;
+</content:encoded>
+			<comments xmlns="http://purl.org/rss/1.0/modules/slash/">0</comments>
+		</item>
 		<item>
 			<title>Finishing my network upgrade: running CAT6 ethernet</title>
 			<link>https://robanderson.dev/blog/cat6-to-my-desk.html</link>
@@ -877,414 +1038,6 @@ sudo systemctl restart nginx
 &lt;pre&gt;&lt;code class="language-sh"&gt;sudo ufw allow 8443/tcp
 &lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;Hopefully this helps someone in the future, or at least helps me when I inevitably forget how I set the site up.&lt;/p&gt;
-</content:encoded>
-			<comments xmlns="http://purl.org/rss/1.0/modules/slash/">0</comments>
-		</item>
-		<item>
-			<title>Converting path parameters to query string parameters for API Gateway websocket APIs</title>
-			<link>https://robanderson.dev/blog/cloudfront-url-transform.html</link>
-			<description>Using CloudFront to transform path parameters to query strings in a websocket URL for API Gateway</description>
-			<guid>https://robanderson.dev/blog/cloudfront-url-transform</guid>
-			<pubDate>Fri, 09 Jun 2023 00:00:00 GMT</pubDate>
-			<content:encoded>&lt;p&gt;&lt;strong&gt;TL;DR&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;&lt;strong&gt;Deploy instructions &lt;a href="https://robanderson.dev/blog/#using-the-template"&gt;here&lt;/a&gt;&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;&lt;strong&gt;Full yaml template &lt;a href="https://robanderson.dev/blog/#full-template"&gt;here&lt;/a&gt;&lt;/strong&gt;&lt;/p&gt;
-&lt;h2 id="why"&gt;Why&lt;/h2&gt;
-&lt;p&gt;API Gateway websocket APIs don't support path parameters after the stage in their URL.  The simple solution would be to avoid using path parameters, but sensible decisions like that aren't always an option.&lt;/p&gt;
-&lt;p&gt;URLs like &lt;code&gt;wss://abcdefghij.execute-api.eu-west-2.amazonaws.com/Prod/hello&lt;/code&gt; will result in a 403 Forbidden status code when connecting with a tool like &lt;code&gt;wscat&lt;/code&gt;. The stage in this case is &lt;code&gt;Prod&lt;/code&gt;, and I've added a path parameter &lt;code&gt;hello&lt;/code&gt;.&lt;/p&gt;
-&lt;p&gt;On one project, the team I was on was building a Websocket API on AWS that had to adhere to an existing standard; we were given an API contract that we had to build to that included the user's auth token as a path parameter on the end of the URL. This was fine for the existing legacy solution we were replacing, but presented an issue with our new serverless solution.&lt;/p&gt;
-&lt;p&gt;Eventually, I was pointed towards CloudFront functions by a friend, and I spent the next weekend hacking to create a workaround for our issue.&lt;/p&gt;
-&lt;h2 id="solution"&gt;Solution&lt;/h2&gt;
-&lt;p&gt;&lt;img src="https://robanderson.dev/blog/images/cloudfront-url-transform.drawio.png" alt="architecture diagram"&gt;&lt;/p&gt;
-&lt;p&gt;The solution I worked on involved creating a CloudFront distribution that the user connected to, with a CloudFront function to take any path parameters and convert them to query string parameters for API Gateway to handle.&lt;/p&gt;
-&lt;pre&gt;&lt;code class="language-plaintext"&gt;wss://abcdefghijklmn.cloudfront.net/one/two/three
-↓
-wss://abcdefghij.execute-api.eu-west-2.amazonaws.com/Prod?path=one&amp;amp;path=two&amp;amp;path=three
-&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;The event received in the Connect Lambda will look like the following json&lt;/p&gt;
-&lt;pre&gt;&lt;code class="language-json"&gt;{
-    "headers": { ... },
-    "isBase64Encoded": false,
-    "multiValueHeaders": { ... },
-    "multiValueQueryStringParameters": {
-        "path": [
-            "one",
-            "two",
-            "three"
-        ]
-    },
-    "queryStringParameters": {
-        "path": "three"
-    },
-    "requestContext": { ... }
-}
-&lt;/code&gt;&lt;/pre&gt;
-&lt;h2 id="using-the-template"&gt;Using the template&lt;/h2&gt;
-&lt;h3 id="requirements"&gt;Requirements&lt;/h3&gt;
-&lt;ul&gt;
-&lt;li&gt;AWS Account&lt;/li&gt;
-&lt;li&gt;AWS CLI (&lt;a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html"&gt;Installer&lt;/a&gt;) (&lt;a href="https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html"&gt;Setup&lt;/a&gt;)&lt;/li&gt;
-&lt;li&gt;AWS SAM CLI (&lt;a href="https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html"&gt;Installer&lt;/a&gt;)&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h4 id="optional-tools"&gt;Optional tools&lt;/h4&gt;
-&lt;ul&gt;
-&lt;li&gt;wscat (&lt;a href="https://github.com/websockets/wscat#installation"&gt;Install instructions&lt;/a&gt;) (for testing)&lt;/li&gt;
-&lt;li&gt;cfn-lint (&lt;a href="https://github.com/aws-cloudformation/cfn-lint#install"&gt;Install instructions&lt;/a&gt;) (for template validation)&lt;/li&gt;
-&lt;/ul&gt;
-&lt;pre&gt;&lt;code class="language-sh"&gt;$ aws --version
-aws-cli/2.11.20 Python/3.11.3 Darwin/22.5.0 exe/x86_64 prompt/off
-
-$ sam --version
-SAM CLI, version 1.84.0
-
-$ wscat --version
-5.2.0
-
-$ cfn-lint --version
-cfn-lint 0.77.5
-&lt;/code&gt;&lt;/pre&gt;
-&lt;h3 id="build-and-deploy"&gt;Build and deploy&lt;/h3&gt;
-&lt;p&gt;Copy the &lt;a href="https://robanderson.dev/blog/#full-template"&gt;full template&lt;/a&gt; from the bottom of this article, or copy the yaml from &lt;a href="https://gist.github.com/jamsidedown/f813d82342a13fcbab5ef89d7ce29e24"&gt;the Github Gist&lt;/a&gt;.&lt;/p&gt;
-&lt;p&gt;Save the contents into a &lt;code&gt;template.yaml&lt;/code&gt; file in whichever directory you want to use as a project directory. This template should serve as a good starting point for any serverless websocket solution with AWS.&lt;/p&gt;
-&lt;p&gt;The template can be checked for errors with &lt;code&gt;cfn-lint&lt;/code&gt;.&lt;/p&gt;
-&lt;pre&gt;&lt;code class="language-sh"&gt;$ cfn-lint template.yaml
-&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;Now the template can be built, and deployed to AWS. For the first run, the &lt;code&gt;sam deploy&lt;/code&gt; command will need to be quite verbose, but for subsequent deploys the process is a lot simpler.&lt;/p&gt;
-&lt;pre&gt;&lt;code class="language-sh"&gt;sam build
-
-# the stack name can be replaced with whatever you want
-sam deploy --stack-name MyWebsocketApi --capabilities CAPABILITY_NAMED_IAM --guided
-
-# I left all values as default, and saved the output to samconfig.toml
-# this makes subsequent deploys much easier
-&lt;/code&gt;&lt;/pre&gt;
-&lt;pre&gt;&lt;code class="language-sh"&gt;# for future deploys
-sam build &amp;amp;&amp;amp; sam deploy
-&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;Assuming the build and deploy succeed, you should see some output with the API Gateway and CloudFront urls&lt;/p&gt;
-&lt;pre&gt;&lt;code class="language-sh"&gt;sam build &amp;amp;&amp;amp; sam deploy
-
-...
-
-CloudFormation outputs from deployed stack
---------------------------------------------------------------------------------------------------------------------------
-Outputs                                                                                                                  
---------------------------------------------------------------------------------------------------------------------------
-Key                 CloudFrontUrl                                                                                        
-Description         Cloudfront URL                                                                                       
-Value               wss://abcdefghijklmn.cloudfront.net                                                                  
-
-Key                 ServerApi                                                                                            
-Description         Api Gateway endpoint URL                                                                             
-Value               wss://abcdefghij.execute-api.eu-west-2.amazonaws.com/Prod                                            
---------------------------------------------------------------------------------------------------------------------------
-
-
-Successfully created/updated stack - MyWebsocketApi in eu-west-2
-&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;Now the endpoint can be tested with &lt;code&gt;wscat&lt;/code&gt;&lt;/p&gt;
-&lt;pre&gt;&lt;code class="language-sh"&gt;$ wscat -c wss://abcdefghijklmn.cloudfront.net/one/two/three
-Connected (press CTRL+C to quit)
-&amp;gt;
-&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;After checking the log group for the Connect Lambda, I can see the query strings that the CloudFront Function have transformed.&lt;/p&gt;
-&lt;pre&gt;&lt;code class="language-json"&gt;{
-    "headers": { ... },
-    "isBase64Encoded": false,
-    "multiValueHeaders": { ... },
-    "multiValueQueryStringParameters": {
-        "path": [
-            "one",
-            "two",
-            "three"
-        ]
-    },
-    "queryStringParameters": {
-        "path": "three"
-    },
-    "requestContext": { ... }
-}
-&lt;/code&gt;&lt;/pre&gt;
-&lt;h2 id="api-gateway"&gt;API Gateway&lt;/h2&gt;
-&lt;pre&gt;&lt;code class="language-yaml"&gt;ApiGateway:
-  Type: "AWS::ApiGatewayV2::Api"
-  Properties:
-    Name: !Sub "${AWS::StackName}-wss-api"
-    ProtocolType: "WEBSOCKET"
-    RouteSelectionExpression: "\\$default"
-
-Stage:
-  Type: "AWS::ApiGatewayV2::Stage"
-  Properties:
-    StageName: "Prod"
-    AutoDeploy: true
-    ApiId: !Ref "ApiGateway"
-&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;I've defined a simple websocket API, with a &lt;code&gt;Prod&lt;/code&gt; stage that deploys every time the API changes.&lt;/p&gt;
-&lt;p&gt;I discovered the &lt;code&gt;AutoDeploy&lt;/code&gt; option for the stage very recently, and it makes the template a lot simpler than manually defining deployments. I've had a number of issues with routes not being added or updated until API Gateway is manually deployed in the past.&lt;/p&gt;
-&lt;h2 id="lambda"&gt;Lambda&lt;/h2&gt;
-&lt;p&gt;Initially I hadn't implemented any routes for API Gateway, but found that I was unable to deploy without at least one route complete. This also made it easier to verify my CloudFront Function was working correctly, as Lambda produced logs that can be checked in CloudWatch.&lt;/p&gt;
-&lt;pre&gt;&lt;code class="language-yaml"&gt;ConnectFunction:
-  Type: "AWS::Serverless::Function"
-  Properties:
-    Runtime: "python3.10"
-    Timeout: 30
-    Architectures:
-      - "arm64"
-    MemorySize: 256
-    Role: !GetAtt "LambdaRole.Arn"
-    Handler: "index.handler"
-    InlineCode: |
-      def handler(event, context):
-        print(event)
-        return {'statusCode': 200}
-&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;I've added a connect lambda with some inline code that logs the received event, then returns a success status code so that the user can connect to the websocket API. I've used Python because I like Python, it runs quickly with very little memory, and it's &lt;a href="https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-code.html#cfn-lambda-function-code-zipfile"&gt;one of the runtimes&lt;/a&gt; that supports &lt;code&gt;InlineCode&lt;/code&gt;.&lt;/p&gt;
-&lt;p&gt;There are also entries in the full template at the bottom of the post to give the lambda permissions to write logs to CloudWatch, and permissions to allow API Gateway to invoke the lambda. I've defined the CloudWatch log group in the CloudFormation template too, so that it gets cleared down with the rest of the stack if/when the stack is deleted. (No one wants to discover hundreds of development log groups left behind).&lt;/p&gt;
-&lt;p&gt;The route and the integration are required to hook the Lambda up to API Gateway.&lt;/p&gt;
-&lt;h2 id="cloudwatch"&gt;CloudWatch&lt;/h2&gt;
-&lt;p&gt;CloudWatch accounts for the majority of the complexity in this post, it's a bit of a large lump of &lt;code&gt;yaml&lt;/code&gt; - apologies.&lt;/p&gt;
-&lt;p&gt;&lt;a href="https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-function.html"&gt;Documentation for CloudFront Functions&lt;/a&gt; is a lot better than it used to be.&lt;/p&gt;
-&lt;pre&gt;&lt;code class="language-yaml"&gt;CloudFrontDist:
-  Type: "AWS::CloudFront::Distribution"
-  Properties:
-    DistributionConfig:
-      Origins:
-        - Id: !Sub "${AWS::StackName}-cloudfront-origin"
-          DomainName: !Sub "${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com"
-          OriginPath: !Sub "/${Stage}"
-          CustomOriginConfig:
-            HTTPSPort: 443
-            OriginProtocolPolicy: "https-only"
-      DefaultCacheBehavior:
-        ViewerProtocolPolicy: "https-only"
-        TargetOriginId: !Sub "${AWS::StackName}-cloudfront-origin" # must be the same as the origin defined above
-        CachePolicyId: "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" # Managed-CachingDisabled
-        OriginRequestPolicyId: !Ref "CloudFrontOriginRequestPolicy"
-        FunctionAssociations:
-          - EventType: "viewer-request"
-            FunctionARN: !GetAtt "CloudFrontFunction.FunctionMetadata.FunctionARN"
-      Enabled: true
-      IPV6Enabled: false
-
-CloudFrontOriginRequestPolicy:
-  Type: "AWS::CloudFront::OriginRequestPolicy"
-  Properties:
-    OriginRequestPolicyConfig:
-      Name: !Sub "${AWS::StackName}-cloudfront-orp"
-      HeadersConfig:
-        HeaderBehavior: "whitelist"
-        Headers:
-          - "Sec-WebSocket-Key"
-          - "Sec-WebSocket-Version"
-          - "Sec-WebSocket-Protocol"
-          - "Sec-WebSocket-Accept"
-      QueryStringsConfig:
-        QueryStringBehavior: "all"
-      CookiesConfig:
-        CookieBehavior: "none"
-
-CloudFrontFunction:
-  Type: "AWS::CloudFront::Function"
-  Properties:
-    Name: !Sub "${AWS::StackName}-cloudfront-function"
-    AutoPublish: true
-    FunctionCode: |
-      function handler(event) {
-        var request = event.request;
-        var re = /^(.*?\/)([^.]+)$/;
-        var match = re.exec(request.uri);
-        if (match) {
-          request.uri = match[1];
-          request.querystring.path = {
-              'multiValue': match[2].split('/').map(p =&amp;gt; { return {'value': p} })
-          };
-        }
-        return request;
-      }
-    FunctionConfig:
-      Comment: "Change path parameters to query string"
-      Runtime: "cloudfront-js-1.0"
-&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;API Gateway is setup as the sole origin for CloudFront, all traffic must be over HTTPS (which WSS is built on top of), and caching has been disabled through the cryptic looking &lt;code&gt;DefaultCacheBehaviour&lt;/code&gt;. You can read the &lt;a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/using-managed-cache-policies.html"&gt;documentation for the caching&lt;/a&gt; to see where &lt;code&gt;4135ea2d-6df8-44a3-9df3-4b5a84be39ad&lt;/code&gt; came from.&lt;/p&gt;
-&lt;p&gt;When a user initially tries to connect to CloudFront, the &lt;code&gt;CloudFrontFunction&lt;/code&gt; will execute to modify the request.&lt;/p&gt;
-&lt;p&gt;The &lt;code&gt;OriginRequestPolicy&lt;/code&gt; restricts connections to websockets only, and from memory does very little else.&lt;/p&gt;
-&lt;p&gt;The &lt;code&gt;CloudFrontFunction&lt;/code&gt; is the star of the show here, and was also the part that took the longest to get right.
-There is an editor in the AWS Console that allows you modify and test your function, but if any part of your test parameters are incorrect it can be very difficult to work out why the function works in testing but not live.&lt;/p&gt;
-&lt;p&gt;The part that initially caught me out was that the &lt;code&gt;event.request.uri&lt;/code&gt; doesn't include the CloudFront URL, so if the user visits &lt;code&gt;wss://abcdefghijklmn.cloudfront.net/one/two/three&lt;/code&gt; the &lt;code&gt;uri&lt;/code&gt; will be &lt;code&gt;/one/two/three&lt;/code&gt;. The inline function above will then set the &lt;code&gt;uri&lt;/code&gt; to &lt;code&gt;/&lt;/code&gt;, and move the path parameters into query string parameters.&lt;/p&gt;
-&lt;p&gt;Currently, the only way to programatically deploy a CloudWatch Function is to include the javascript code in the template like this. I'd prefer to be able to work with Python, but it's been about 18 months since I first worked on this, and &lt;code&gt;cloudfront-js-1.0&lt;/code&gt; is still the only available runtime. &lt;a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/functions-javascript-runtime-features.html"&gt;cloudfront-js-1.0&lt;/a&gt; is fully compliant with ES 5.1, with a few extras tacked on by AWS.&lt;/p&gt;
-&lt;p&gt;There is now &lt;a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/functions-event-structure.html#functions-event-structure-query-header-cookie"&gt;decent documentation for the event structure&lt;/a&gt; in CloudFront Functions, and a &lt;a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/writing-function-code.html"&gt;basic guide to writing CloudFront Functions&lt;/a&gt;. Both are helpful, but feel like they're missing some details around multi-value query strings.&lt;/p&gt;
-&lt;p&gt;As a warning, CloudFront functions seem to take a few minutes to deploy every time they're changed, so I'd recommend trying to keep changes to a minimum.&lt;/p&gt;
-&lt;h2 id="full-template"&gt;Full template&lt;/h2&gt;
-&lt;p&gt;&lt;strong&gt;Also avaiable &lt;a href="https://gist.github.com/jamsidedown/f813d82342a13fcbab5ef89d7ce29e24"&gt;from this Github gist&lt;/a&gt;&lt;/strong&gt;&lt;/p&gt;
-&lt;pre&gt;&lt;code class="language-yaml"&gt;AWSTemplateFormatVersion: "2010-09-09"
-Transform: "AWS::Serverless-2016-10-31"
-
-Resources:
-  ApiGateway:
-    Type: "AWS::ApiGatewayV2::Api"
-    Properties:
-      Name: !Sub "${AWS::StackName}-wss-api"
-      ProtocolType: "WEBSOCKET"
-      RouteSelectionExpression: "\\$default"
-
-  Stage:
-    Type: "AWS::ApiGatewayV2::Stage"
-    Properties:
-      StageName: "Prod"
-      AutoDeploy: true
-      ApiId: !Ref "ApiGateway"
-
-  LambdaRole:
-    Type: "AWS::IAM::Role"
-    Properties:
-      RoleName: !Sub "${AWS::StackName}-lambda-role"
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: "Allow"
-            Principal:
-              Service:
-                - "lambda.amazonaws.com"
-            Action:
-              - "sts:AssumeRole"
-
-  LambdaPolicy:
-    Type: "AWS::IAM::Policy"
-    Properties:
-      PolicyName: !Sub "${AWS::StackName}-lambda-policy"
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: "Allow"
-            Action:
-              - "logs:CreateLogGroup"
-              - "logs:CreateLogStream"
-              - "logs:PutLogEvents"
-            Resource: "*"
-      Roles:
-        - !Ref "LambdaRole"
-
-  ConnectFunction:
-    Type: "AWS::Serverless::Function"
-    Properties:
-      Runtime: "python3.10"
-      Timeout: 30
-      Architectures:
-        - "arm64"
-      MemorySize: 256
-      Role: !GetAtt "LambdaRole.Arn"
-      Handler: "index.handler"
-      InlineCode: |
-        def handler(event, context):
-          print(event)
-          return {'statusCode': 200}
-
-  ConnectFunctionLogGroup:
-    Type: "AWS::Logs::LogGroup"
-    Properties:
-      LogGroupName: !Sub "/aws/lambda/${ConnectFunction}"
-      RetentionInDays: 30
-
-  ConnectInvokePermission:
-    Type: "AWS::Lambda::Permission"
-    DependsOn:
-      - "ApiGateway"
-    Properties:
-      Action: "lambda:InvokeFunction"
-      FunctionName: !Ref "ConnectFunction"
-      Principal: "apigateway.amazonaws.com"
-
-  ConnectRoute:
-    Type: "AWS::ApiGatewayV2::Route"
-    Properties:
-      ApiId: !Ref "ApiGateway"
-      RouteKey: "$connect"
-      OperationName: "ConnectRoute"
-      Target: !Sub "integrations/${ConnectIntegration}"
-
-  ConnectIntegration:
-    Type: "AWS::ApiGatewayV2::Integration"
-    Properties:
-      ApiId: !Ref "ApiGateway"
-      IntegrationType: "AWS_PROXY"
-      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ConnectFunction.Arn}/invocations"
-
-  CloudFrontDist:
-    Type: "AWS::CloudFront::Distribution"
-    Properties:
-      DistributionConfig:
-        Origins:
-          - Id: !Sub "${AWS::StackName}-cloudfront-origin"
-            DomainName: !Sub "${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com"
-            OriginPath: !Sub "/${Stage}"
-            CustomOriginConfig:
-              HTTPSPort: 443
-              OriginProtocolPolicy: "https-only"
-        DefaultCacheBehavior:
-          ViewerProtocolPolicy: "https-only"
-          TargetOriginId: !Sub "${AWS::StackName}-cloudfront-origin" # must be the same as the origin defined above
-          CachePolicyId: "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" # Managed-CachingDisabled
-          OriginRequestPolicyId: !Ref "CloudFrontOriginRequestPolicy"
-          FunctionAssociations:
-            - EventType: "viewer-request"
-              FunctionARN: !GetAtt "CloudFrontFunction.FunctionMetadata.FunctionARN"
-        Enabled: true
-        IPV6Enabled: false
-
-  CloudFrontOriginRequestPolicy:
-    Type: "AWS::CloudFront::OriginRequestPolicy"
-    Properties:
-      OriginRequestPolicyConfig:
-        Name: !Sub "${AWS::StackName}-cloudfront-orp"
-        HeadersConfig:
-          HeaderBehavior: "whitelist"
-          Headers:
-            - "Sec-WebSocket-Key"
-            - "Sec-WebSocket-Version"
-            - "Sec-WebSocket-Protocol"
-            - "Sec-WebSocket-Accept"
-        QueryStringsConfig:
-          QueryStringBehavior: "all"
-        CookiesConfig:
-          CookieBehavior: "none"
-
-  CloudFrontFunction:
-    Type: "AWS::CloudFront::Function"
-    Properties:
-      Name: !Sub "${AWS::StackName}-cloudfront-function"
-      AutoPublish: true
-      FunctionCode: |
-        function handler(event) {
-          var request = event.request;
-
-          var re = /^(.*?\/)([^.]+)$/;
-          var match = re.exec(request.uri);
-
-          if (match) {
-            request.uri = match[1];
-
-            request.querystring.path = {
-                'multiValue': match[2].split('/').map(p =&amp;gt; { return {'value': p} })
-            };
-          }
-
-          return request;
-        }
-      FunctionConfig:
-        Comment: "Change path parameters to query string"
-        Runtime: "cloudfront-js-1.0"
-
-Outputs:
-  ServerApi:
-    Description: "Api Gateway endpoint URL"
-    Value: !Sub "${ApiGateway.ApiEndpoint}/${Stage}"
-  CloudFrontUrl:
-    Description: "Cloudfront URL"
-    Value: !Sub "wss://${CloudFrontDist.DomainName}"
-&lt;/code&gt;&lt;/pre&gt;
-&lt;h2 id="summary"&gt;Summary&lt;/h2&gt;
-&lt;p&gt;Thanks for taking the time to read this, hopefully it'll serve as some sort of documentation for this slightly convoluted workaround to this issue with API Gateway.&lt;/p&gt;
 </content:encoded>
 			<comments xmlns="http://purl.org/rss/1.0/modules/slash/">0</comments>
 		</item>

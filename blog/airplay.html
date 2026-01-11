@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>Airplay streaming for under &#xA3;40*</title>
+
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+                <meta name="description" content="Using the Raspberry Pi DAC&#x2B; to stream Airplay audio to my hi-fi">
+
+        <link rel="icon" href="https://robanderson.dev/images/favicon.png">
+
+        <link rel="stylesheet" href="css/blog.css">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Code+Pro&display=swap">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro&display=swap">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/base16/espresso.min.css">
+
+        <link rel=alternate title="Rob Anderson's Blog" type=application/rss+xml href="site.rss">
+
+        <script src="js/highlight.min.js"></script>
+    </head>
+    <body>
+        <div class="background"></div> 
+        <main>
+            <div class="terminal">
+                <div class="rendered">
+                    <a class="home" href="./">Home</a>
+                    <div class="centre">
+                        <h1>Airplay streaming for under &#xA3;40*</h1>
+                            <span>2026-01-11</span>
+                    </div>
+                    <hr />
+                    <p>*If you already have an unused Raspberry Pi</p>
+<h2 id="preamble">Preamble</h2>
+<p>My current client at work has regular software development show-and-tell sessions where a couple of developers within the company give short presentations on a topic of their choosing to the rest of the community.</p>
+<p>One of the recent presentations was about someone using a few Raspberry Pis around their house as an open source alternative to something like Sonos. They were talking about the additional hardware required for a Pi to output decent quality audio, and the software they were using to play their music throughout their house.</p>
+<p>The talk piqued my interest, and I was pleasantly surprised that DAC (digital to analogue converters) for the Raspberry Pi were significantly more affordable than I thought they'd be, and significantly cheaper than the majority of consumer-grade DACs available online.</p>
+<p>The Audiolab M-DAC Mini I have connected to my PC set me back over £200 in 2020, so I was very interested to see if a comparable audio quality was possible with a very cheap Raspberry Pi DAC+ (£19.20 from The Pi Hut).</p>
+<h2 id="forming-a-plan">Forming a plan</h2>
+<p>I already had a spare Raspberry Pi, power supply, and micro SD card that predictably were sitting unused in a drawer in my loft; as many Pis will be in the average tech enthusiast's house.</p>
+<p>I also already own a pre-amplifier, a power amplifier, and a pair of speakers that have been hooked up to my turntable for several years now. I've acquired these for free as my Dad has upgraded his hi-fi setup over the years (nepotism at its best).</p>
+<p>The minimum additional equipment required for me were the DAC+ hat, and an RCA cable as I don't have any spares.</p>
+<p><img src="images/dac.png" alt="Raspberry Pi DAC wiring diagram" /></p>
+<p>I ended up buying a case for the Raspberry Pi, a heatsink, and a fan (that I've not yet installed as I'm not sure if it's necessary).</p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Cost (incl. tax)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://thepihut.com/products/iqaudio-dac">Raspberry Pi DAC+</a></td>
+<td>£19.20</td>
+</tr>
+<tr>
+<td><a href="https://thepihut.com/products/highpi-pro-case-for-iqaudio-dac-dac-pro-and-raspberry-pi-4">HighPi case</a></td>
+<td>£11.40</td>
+</tr>
+<tr>
+<td><a href="https://thepihut.com/products/rca-cable-2x-male-to-2x-male">RCA cable</a></td>
+<td>£1.50</td>
+</tr>
+<tr>
+<td><a href="https://thepihut.com/products/xl-raspberry-pi-4-heatsink">Heatsink</a></td>
+<td>£2.00</td>
+</tr>
+<tr>
+<td><a href="https://thepihut.com/products/highpi-pro-5v-fan-software-controlled">Fan</a></td>
+<td>£5.00</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Total</td>
+<td>£39.10</td>
+</tr>
+</tbody>
+</table>
+<p>If you don't already have a spare Raspberry Pi, then a Pi 4 1GB is £33.60, or a Pi 5 1GB is £43.20. The official 15W power supply for the Pi 4 is £7.70, though the Pi 5 requires a beefier power supply, so the official 27W one will set you back £11.60. The official 256GB micro SD card costs £9.60, though this project definitely doesn't need anywhere near that much storage space; SD cards have just got very affordable.</p>
+<p>In case you weren't keeping track this would mean an additional £50.90 for the Raspberry Pi 4, or £64.40 for the Pi 5 (still significantly cheaper than the average hi-fi DAC).</p>
+<h2 id="assembly">Assembly</h2>
+<ol>
+<li>Stick the heatsink to the chips on the Pi; the one I bought has a large surface area, covering multiple chips while being nice and short</li>
+<li>Install the standoffs for the DAC by screwing the posts onto the Raspberry Pi</li>
+<li>Install the DAC+ by carefully placing the 40 pins on the Pi into the socket on the DAC</li>
+<li>Secure the DAC+ to the standoffs with the remaining screws</li>
+<li>Open the case using the instructions on the side of the box</li>
+<li>Push the Pi &amp; DAC into the case where the plastic clips will hold it steady</li>
+<li>Put the top of the case back on</li>
+</ol>
+<p><img src="images/pi-dac.jpg" alt="Mostly assembled Raspberry Pi DAC" /></p>
+<h2 id="installing-an-os">Installing an OS</h2>
+<p>Despite usually defaulting to Ubuntu, I opted for the 64-bit version of Raspbian Lite as I hoped it'd support the DAC+ out of the box, and Ubuntu Server for the Pi seems to take a lot longer to boot.</p>
+<p>I flashed Raspbian onto the micro SD card using the <a href="https://www.raspberrypi.com/software/">Raspberry Pi Imager</a>, adding my username, password, and WiFi network. I use SSH to access all of my devices, so I <a href="https://www.raspberrypi.com/documentation/computers/remote-access.html">enabled SSH and added a public key</a> before flashing to my micro SD card. It's an old 16GB card, but for this I imagine I could have used an even smaller one.</p>
+<p>I then installed the micro SD card into the Raspberry Pi, and booted it up.</p>
+<h2 id="setting-up-airplay">Setting up Airplay</h2>
+<p>This section is the longest and most complex part of this post, but I had everything up and running in around 30 minutes.</p>
+<p>The tool I'm using to play music via Airplay is <a href="https://github.com/mikebrady/shairport-sync">shairport-sync</a>, which includes a fantastic <a href="https://github.com/mikebrady/shairport-sync/blob/master/BUILD.md">install guide</a>. They also linked to the library for playing Apple encoded music: <a href="https://github.com/mikebrady/alac">ALAC</a>.</p>
+<p>I'll include all the commands I used, along with comments explaining why I've done something.</p>
+<pre><code class="language-sh"># update existing packages
+$ sudo apt update
+$ sudo apt upgrade -y
+
+# install dependencies required for ALAC
+$ sudo apt install build-essential git autoconf automake libtool
+
+# clone the ALAC repository
+$ git clone https://github.com/mikebrady/alac.git
+
+# build and install ALAC
+$ cd alac
+$ autoreconf -fi
+$ ./configure
+$ make
+$ sudo make install
+$ sudo ldconfig
+
+# change back to home directory
+$ cd ~
+
+# install dependencies required for shairport-sync
+$ sudo apt install --no-install-recommends libpopt-dev libconfig-dev libasound2-dev \
+    avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev libplist-dev libsodium-dev \
+    libavutil-dev libavcodec-dev libavformat-dev uuid-dev libgcrypt-dev xxd systemd-dev
+
+# clone the shairport-sync repo
+$ git clone https://github.com/mikebrady/shairport-sync.git
+
+# build and install shairport-sync
+$ cd shairport-sync
+$ autoreconf -fi
+$ ./configure --sysconfdir=/etc --with-alsa --with-soxr \
+    --with-avahi --with-ssl=openssl --with-systemd
+$ make
+$ sudo make install
+
+# enable and start the shairport sync service
+$ sudo systemctl enable shairport-sync
+$ sudo systemctl start shairport-sync
+</code></pre>
+<p>By default, it may try to play through the incorrect audio interface, so you'll need to set a default output for shairport-sync to use by editing a config file.</p>
+<p>Get the id of the DAC+</p>
+<pre><code class="language-sh">$ shairport-sync -h
+...
+    hardware output devices:
+      &quot;hw:Headphones&quot;
+      &quot;hdmi:vc4hdmi0&quot;
+      &quot;hdmi:vc4hdmi1&quot;
+      &quot;hw:DAC&quot;
+</code></pre>
+<p>Here, the id I want to use is <code>hw:DAC</code>.</p>
+<p>Edit the shairport config file</p>
+<pre><code class="language-sh">$ sudo nano /etc/shairport-sync.conf
+</code></pre>
+<p>Scroll down with the arrow keys until you reach the line <code>alsa =</code>. There should already be an opening curly bracket, so add the following 2 lines to make it look like:</p>
+<pre><code class="language-text">alsa =
+{
+    output_device = &quot;hw:DAC&quot;;
+    mixer_control_name = &quot;DAC&quot;;
+</code></pre>
+<p>Save by pressing <code>Ctrl+o</code>, then exit with <code>Ctrl+x</code>.</p>
+<p>Now power off the Raspberry Pi with <code>sudo shutdown -h now</code>.</p>
+<h2 id="wiring-it-up">Wiring it up</h2>
+<p>At this point I took the Raspberry Pi over to my hi-fi, and connected the RCA cable from the Pi to my pre-amp.</p>
+<p>I booted up the Pi, changed the input for the pre-amp from phono to CD, and found that after around 30 seconds I was able to select the Pi as the output from Apple Music on my phone.</p>
+<h2 id="what-about-the-fan">What about the fan?</h2>
+<p>Having used 40mm fans in Raspberry Pis before, I know they can be a bit loud at an irritating pitch, so if I can avoid the fan noise that'd be nice. My plan is to leave the Pi DAC running 24x7 to reduce the number of times I switch it off at the plug and risk corrupting the OS on the SD card.</p>
+<p>If the heatsink alone is enough to keep the Pi's temperature under control, then I'll just not bother installing the fan and accept that I've wasted £5.</p>
+<p>I wrote a little script that logs the current temperature along with a timestamp to a text file, then called it every minute on the minute with a cron job.</p>
+<pre><code class="language-sh">#!/bin/sh
+
+echo &quot;$(date '+%H:%M:%S') $(sensors | grep temp1 | awk '{ print $2 }')&quot; &gt;&gt; temps_$(date -I).log
+</code></pre>
+<p>After leaving the Pi running for a few hours playing a few albums, and it seemed to peak at around 47°C, which I think is perfectly acceptable. It also seems to sit comfortably around 40°C when not in use. The thermostat said the room was 18°C at the time, so I may need to reassess the fan in the summer.</p>
+<p>Plotting the temperatures gives a nice flat graph:</p>
+<p><img src="images/pi-dac-temp.png" alt="Temperature graph of the Pi topping out around 47°C" /></p>
+<h2 id="conclusion">Conclusion</h2>
+<p>I was surprised how cheap and easy it was to wirelessly connect my phone to my old hi-fi. Obviously there's an additional cost if you don't have a spare Raspberry Pi, but based on conversations at work I think there's a huge number of techy people with RPis sitting in drawers collecting dust.</p>
+<p>Apple Music allows me to play lossless CD-quality music, and the DAC+ handles it all well and sounds good to my ears - though that's more likely due to the rest of the setup more than the DAC.</p>
+<p>Either way, it's significantly cheaper than buying a proper network streamer, and has made me very happy that I can play music that I don't own on vinyl. Especially since some albums are very expensive and difficult to find.</p>
+
+                    <hr />
+                        <div class="centre">&#xA9; 2023-2026 Rob Anderson</div>
+                </div>
+            </div>
+        </main>
+        <script>
+            document.addEventListener('DOMContentLoaded', (event) => {
+                document.querySelectorAll('code').forEach((el) => {
+                    hljs.highlightElement(el);
+                });
+            });
+
+            window.onload = () => {
+                for (const link of document.getElementsByTagName('a')) {
+                    if (!link.href.startsWith('https://robanderson.dev')) {
+                        link.target = '_blank';
+                    }
+                }
+            };
+        </script>
+    </body>
+</html>
