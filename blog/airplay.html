@@ -40,7 +40,7 @@
 <p>I also already own a pre-amplifier, a power amplifier, and a pair of speakers that have been hooked up to my turntable for several years now. I've acquired these for free as my Dad has upgraded his hi-fi setup over the years (nepotism at its best).</p>
 <p>The minimum additional equipment required for me were the DAC+ hat, and an RCA cable as I don't have any spares.</p>
 <p><img src="images/dac.png" alt="Raspberry Pi DAC wiring diagram" /></p>
-<p>I ended up buying a case for the Raspberry Pi, a heatsink, and a fan (that I've not yet installed as I'm not sure if it's necessary).</p>
+<p>I ended up buying a case for the Raspberry Pi, a heatsink, and a fan.</p>
 <table>
 <thead>
 <tr>
@@ -89,6 +89,13 @@
 <li>Secure the DAC+ to the standoffs with the remaining screws</li>
 <li>Open the case using the instructions on the side of the box</li>
 <li>Push the Pi &amp; DAC into the case where the plastic clips will hold it steady</li>
+<li>Install the fan and connect it to the pins on the DAC (there are more detailed instructions on the page linked above)
+<ul>
+<li>Red wire to Pin 4 (+5V)</li>
+<li>Black Wire to Pin 6 (GND)</li>
+<li>Blue wire to Pin 8 (GPIO 14 TXD)</li>
+</ul>
+</li>
 <li>Put the top of the case back on</li>
 </ol>
 <p><img src="images/pi-dac.jpg" alt="Mostly assembled Raspberry Pi DAC" /></p>
@@ -155,11 +162,10 @@ $ sudo systemctl start shairport-sync
 <p>Edit the shairport config file</p>
 <pre><code class="language-sh">$ sudo nano /etc/shairport-sync.conf
 </code></pre>
-<p>Scroll down with the arrow keys until you reach the line <code>alsa =</code>. There should already be an opening curly bracket, so add the following 2 lines to make it look like:</p>
+<p>Scroll down with the arrow keys until you reach the line <code>alsa =</code>. There should already be an opening curly bracket, so add the following line to make it look like:</p>
 <pre><code class="language-text">alsa =
 {
     output_device = &quot;hw:DAC&quot;;
-    mixer_control_name = &quot;DAC&quot;;
 </code></pre>
 <p>Save by pressing <code>Ctrl+o</code>, then exit with <code>Ctrl+x</code>.</p>
 <p>Now power off the Raspberry Pi with <code>sudo shutdown -h now</code>.</p>
@@ -167,7 +173,7 @@ $ sudo systemctl start shairport-sync
 <p>At this point I took the Raspberry Pi over to my hi-fi, and connected the RCA cable from the Pi to my pre-amp.</p>
 <p>I booted up the Pi, changed the input for the pre-amp from phono to CD, and found that after around 30 seconds I was able to select the Pi as the output from Apple Music on my phone.</p>
 <h2 id="what-about-the-fan">What about the fan?</h2>
-<p>Having used 40mm fans in Raspberry Pis before, I know they can be a bit loud at an irritating pitch, so if I can avoid the fan noise that'd be nice. My plan is to leave the Pi DAC running 24x7 to reduce the number of times I switch it off at the plug and risk corrupting the OS on the SD card.</p>
+<p>Having used 30mm fans in Raspberry Pis before, I know they can be a bit loud at an irritating pitch, so if I can avoid the fan noise that'd be nice. My plan is to leave the Pi DAC running 24x7 to reduce the number of times I switch it off at the plug and risk corrupting the OS on the SD card.</p>
 <p>If the heatsink alone is enough to keep the Pi's temperature under control, then I'll just not bother installing the fan and accept that I've wasted £5.</p>
 <p>I wrote a little script that logs the current temperature along with a timestamp to a text file, then called it every minute on the minute with a cron job.</p>
 <pre><code class="language-sh">#!/bin/sh
@@ -177,6 +183,13 @@ echo &quot;$(date '+%H:%M:%S') $(sensors | grep temp1 | awk '{ print $2 }')&quot
 <p>After leaving the Pi running for a few hours playing a few albums, and it seemed to peak at around 47°C, which I think is perfectly acceptable. It also seems to sit comfortably around 40°C when not in use. The thermostat said the room was 18°C at the time, so I may need to reassess the fan in the summer.</p>
 <p>Plotting the temperatures gives a nice flat graph:</p>
 <p><img src="images/pi-dac-temp.png" alt="Temperature graph of the Pi topping out around 47°C" /></p>
+<h3 id="amendment-2026-01-15">Amendment (2026-01-15)</h3>
+<p>I installed the fan to test how loud it was (audible over my server fan, but not with music playing) and discovered that there's a setting for these 3-pin fans to only turn on when the Pi passes a configured temperature threshold.</p>
+<p>I decided that 60°C seemed like a sensible temperature for the fan to kick in, so I added the following lines at the bottom of my <code>/boot/firmware/config.txt</code></p>
+<pre><code class="language-text">[all]
+dtoverlay=gpio-fan,gpiopin=14,temp=60000
+</code></pre>
+<p>The fan may turn on under heavy use in the summer, but I doubt it. At least I haven't completely wasted the £5 I spent on the fan.</p>
 <h2 id="conclusion">Conclusion</h2>
 <p>I was surprised how cheap and easy it was to wirelessly connect my phone to my old hi-fi. Obviously there's an additional cost if you don't have a spare Raspberry Pi, but based on conversations at work I think there's a huge number of techy people with RPis sitting in drawers collecting dust.</p>
 <p>Apple Music allows me to play lossless CD-quality music, and the DAC+ handles it all well and sounds good to my ears - though that's more likely due to the rest of the setup more than the DAC.</p>

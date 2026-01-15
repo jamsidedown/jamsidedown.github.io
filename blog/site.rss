@@ -6,8 +6,8 @@
 		<description />
 		<copyright>2026</copyright>
 		<managingEditor>Rob Anderson</managingEditor>
-		<pubDate>Sun, 11 Jan 2026 12:58:53 GMT</pubDate>
-		<lastBuildDate>Sun, 11 Jan 2026 12:58:53 GMT</lastBuildDate>
+		<pubDate>Thu, 15 Jan 2026 18:23:19 GMT</pubDate>
+		<lastBuildDate>Thu, 15 Jan 2026 18:23:19 GMT</lastBuildDate>
 		<item>
 			<title>Airplay streaming for under £40*</title>
 			<link>https://robanderson.dev/blog/airplay.html</link>
@@ -25,7 +25,7 @@
 &lt;p&gt;I also already own a pre-amplifier, a power amplifier, and a pair of speakers that have been hooked up to my turntable for several years now. I've acquired these for free as my Dad has upgraded his hi-fi setup over the years (nepotism at its best).&lt;/p&gt;
 &lt;p&gt;The minimum additional equipment required for me were the DAC+ hat, and an RCA cable as I don't have any spares.&lt;/p&gt;
 &lt;p&gt;&lt;img src="https://robanderson.dev/blog/images/dac.png" alt="Raspberry Pi DAC wiring diagram"&gt;&lt;/p&gt;
-&lt;p&gt;I ended up buying a case for the Raspberry Pi, a heatsink, and a fan (that I've not yet installed as I'm not sure if it's necessary).&lt;/p&gt;
+&lt;p&gt;I ended up buying a case for the Raspberry Pi, a heatsink, and a fan.&lt;/p&gt;
 &lt;table&gt;
 &lt;thead&gt;
 &lt;tr&gt;
@@ -74,6 +74,13 @@
 &lt;li&gt;Secure the DAC+ to the standoffs with the remaining screws&lt;/li&gt;
 &lt;li&gt;Open the case using the instructions on the side of the box&lt;/li&gt;
 &lt;li&gt;Push the Pi &amp;amp; DAC into the case where the plastic clips will hold it steady&lt;/li&gt;
+&lt;li&gt;Install the fan and connect it to the pins on the DAC (there are more detailed instructions on the page linked above)
+&lt;ul&gt;
+&lt;li&gt;Red wire to Pin 4 (+5V)&lt;/li&gt;
+&lt;li&gt;Black Wire to Pin 6 (GND)&lt;/li&gt;
+&lt;li&gt;Blue wire to Pin 8 (GPIO 14 TXD)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
 &lt;li&gt;Put the top of the case back on&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;&lt;img src="https://robanderson.dev/blog/images/pi-dac.jpg" alt="Mostly assembled Raspberry Pi DAC"&gt;&lt;/p&gt;
@@ -140,11 +147,10 @@ $ sudo systemctl start shairport-sync
 &lt;p&gt;Edit the shairport config file&lt;/p&gt;
 &lt;pre&gt;&lt;code class="language-sh"&gt;$ sudo nano /etc/shairport-sync.conf
 &lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;Scroll down with the arrow keys until you reach the line &lt;code&gt;alsa =&lt;/code&gt;. There should already be an opening curly bracket, so add the following 2 lines to make it look like:&lt;/p&gt;
+&lt;p&gt;Scroll down with the arrow keys until you reach the line &lt;code&gt;alsa =&lt;/code&gt;. There should already be an opening curly bracket, so add the following line to make it look like:&lt;/p&gt;
 &lt;pre&gt;&lt;code class="language-text"&gt;alsa =
 {
     output_device = "hw:DAC";
-    mixer_control_name = "DAC";
 &lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;Save by pressing &lt;code&gt;Ctrl+o&lt;/code&gt;, then exit with &lt;code&gt;Ctrl+x&lt;/code&gt;.&lt;/p&gt;
 &lt;p&gt;Now power off the Raspberry Pi with &lt;code&gt;sudo shutdown -h now&lt;/code&gt;.&lt;/p&gt;
@@ -152,7 +158,7 @@ $ sudo systemctl start shairport-sync
 &lt;p&gt;At this point I took the Raspberry Pi over to my hi-fi, and connected the RCA cable from the Pi to my pre-amp.&lt;/p&gt;
 &lt;p&gt;I booted up the Pi, changed the input for the pre-amp from phono to CD, and found that after around 30 seconds I was able to select the Pi as the output from Apple Music on my phone.&lt;/p&gt;
 &lt;h2 id="what-about-the-fan"&gt;What about the fan?&lt;/h2&gt;
-&lt;p&gt;Having used 40mm fans in Raspberry Pis before, I know they can be a bit loud at an irritating pitch, so if I can avoid the fan noise that'd be nice. My plan is to leave the Pi DAC running 24x7 to reduce the number of times I switch it off at the plug and risk corrupting the OS on the SD card.&lt;/p&gt;
+&lt;p&gt;Having used 30mm fans in Raspberry Pis before, I know they can be a bit loud at an irritating pitch, so if I can avoid the fan noise that'd be nice. My plan is to leave the Pi DAC running 24x7 to reduce the number of times I switch it off at the plug and risk corrupting the OS on the SD card.&lt;/p&gt;
 &lt;p&gt;If the heatsink alone is enough to keep the Pi's temperature under control, then I'll just not bother installing the fan and accept that I've wasted £5.&lt;/p&gt;
 &lt;p&gt;I wrote a little script that logs the current temperature along with a timestamp to a text file, then called it every minute on the minute with a cron job.&lt;/p&gt;
 &lt;pre&gt;&lt;code class="language-sh"&gt;#!/bin/sh
@@ -162,6 +168,13 @@ echo "$(date '+%H:%M:%S') $(sensors | grep temp1 | awk '{ print $2 }')" &amp;gt;
 &lt;p&gt;After leaving the Pi running for a few hours playing a few albums, and it seemed to peak at around 47°C, which I think is perfectly acceptable. It also seems to sit comfortably around 40°C when not in use. The thermostat said the room was 18°C at the time, so I may need to reassess the fan in the summer.&lt;/p&gt;
 &lt;p&gt;Plotting the temperatures gives a nice flat graph:&lt;/p&gt;
 &lt;p&gt;&lt;img src="https://robanderson.dev/blog/images/pi-dac-temp.png" alt="Temperature graph of the Pi topping out around 47°C"&gt;&lt;/p&gt;
+&lt;h3 id="amendment-2026-01-15"&gt;Amendment (2026-01-15)&lt;/h3&gt;
+&lt;p&gt;I installed the fan to test how loud it was (audible over my server fan, but not with music playing) and discovered that there's a setting for these 3-pin fans to only turn on when the Pi passes a configured temperature threshold.&lt;/p&gt;
+&lt;p&gt;I decided that 60°C seemed like a sensible temperature for the fan to kick in, so I added the following lines at the bottom of my &lt;code&gt;/boot/firmware/config.txt&lt;/code&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-text"&gt;[all]
+dtoverlay=gpio-fan,gpiopin=14,temp=60000
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The fan may turn on under heavy use in the summer, but I doubt it. At least I haven't completely wasted the £5 I spent on the fan.&lt;/p&gt;
 &lt;h2 id="conclusion"&gt;Conclusion&lt;/h2&gt;
 &lt;p&gt;I was surprised how cheap and easy it was to wirelessly connect my phone to my old hi-fi. Obviously there's an additional cost if you don't have a spare Raspberry Pi, but based on conversations at work I think there's a huge number of techy people with RPis sitting in drawers collecting dust.&lt;/p&gt;
 &lt;p&gt;Apple Music allows me to play lossless CD-quality music, and the DAC+ handles it all well and sounds good to my ears - though that's more likely due to the rest of the setup more than the DAC.&lt;/p&gt;
