@@ -6,8 +6,91 @@
 		<description />
 		<copyright>2026</copyright>
 		<managingEditor>Rob Anderson</managingEditor>
-		<pubDate>Thu, 15 Jan 2026 18:23:19 GMT</pubDate>
-		<lastBuildDate>Thu, 15 Jan 2026 18:23:19 GMT</lastBuildDate>
+		<pubDate>Sat, 14 Mar 2026 16:36:20 GMT</pubDate>
+		<lastBuildDate>Sat, 14 Mar 2026 16:36:20 GMT</lastBuildDate>
+		<item>
+			<title>Buying and configuring a CyberPower UPS for my home server</title>
+			<link>https://robanderson.dev/blog/ups.html</link>
+			<description>Configuring a CyberPower UPS to keep my Dell T160 home server running during power cuts</description>
+			<guid>https://robanderson.dev/blog/ups</guid>
+			<pubDate>Sat, 14 Mar 2026 00:00:00 GMT</pubDate>
+			<content:encoded>&lt;h2 id="buying-a-ups-finally"&gt;Buying a UPS (finally)&lt;/h2&gt;
+&lt;p&gt;After upgrading a few parts of my server and network in August 2025, I decided that it was probably about time to remedy a critical missing piece of my home setup.&lt;/p&gt;
+&lt;p&gt;We get frequent short power cuts when the weather isn't great, and while I had been lucky that my little old HP Microserver had survived so much abuse, the worry in the back of my head was that at some point a power cut was going to cause issues with my new server and/or data. Through the Autumn and Winter months I think we average around one power cut per month, normally for under 2 minutes, with one outlier for a couple of hours in early February.&lt;/p&gt;
+&lt;p&gt;I'd half-heartedly looked at buying an uninterruptible power supply (UPS) in the past, but struggled to find anything that caught my eye. I wanted to be able to keep my server running through short power cuts; only powering my server down safely if the power had been off for over 10 minutes or so.&lt;/p&gt;
+&lt;p&gt;A lot of our power cuts occur during the night and my dog sleeps within earshot of my server, so I needed to be able to configure the UPS to not make any loud beeps when the power goes off. This seemed to be an issue with the APC UPS I was initially considering.&lt;/p&gt;
+&lt;p&gt;After doing some (minimal) research I decided on the &lt;a href="https://www.cyberpower.com/uk/en/product/sku/ut1050eig"&gt;CyberPower UT1050EIG&lt;/a&gt;. With it's catchy name and good reviews, it offers enough power output for my server, with a big enough capacity to keep it on for more than long enough to survive our short power cuts.&lt;/p&gt;
+&lt;p&gt;It has a USB type B port to connect to my server, and pretty well documented software to install to help configure the UPS. It took me a little while to find the &lt;a href="https://www.cyberpower.com/uk/en/product/sku/powerpanel_for_linux#downloads"&gt;software and documentation&lt;/a&gt; from the product page, but once I did I was able to see it was available as a &lt;code&gt;.deb&lt;/code&gt; installer for x64. The &lt;a href="https://wiki.archlinux.org/title/CyberPower_UPS"&gt;documentation on the Arch wiki&lt;/a&gt; was also really helpful, though in fairness it's saved me a few times over the years for documentation.&lt;/p&gt;
+&lt;p&gt;I bought the UPS from &lt;a href="https://www.scan.co.uk/products/1050va-cyberpower-ut1050eig-uninterruptible-power-supply-630w-6x-c13-outlets-lead-acid-battery-line"&gt;Scan for £95.98&lt;/a&gt; including postage, and while delivery took a little longer than expected, I was very pleased with how well it was packaged. I bought a C14 to C13 power cable, but discovered on arrival that the UPS came with one in the box. (I couldn't see any mention of it on the product page).&lt;/p&gt;
+&lt;p&gt;I was happy to see that the software allowed configuring the audible alarm, and time/capacity thresholds for powering down a connected device. According to the product page it can put out 630W (my server has a 500W power supply, but draws much less than that even under load) and can sustain 90W for over 40 minutes. I think my server idles at around half of that, so I should theoretically get around an hour and 20 minutes of life if I were to prioritise keeping my server running as long as possible.&lt;/p&gt;
+&lt;p&gt;The &lt;code&gt;pwrstat&lt;/code&gt; software executes user-editable shell scripts on power loss and before switching off a connected device, perfect for logging and keeping track of how often my power supplier messes up. I haven't worked out if I can log my power coming back on in cases where the server didn't reboot, but it's not hugley important. I can get that information post-restart from the &lt;code&gt;pwrstat&lt;/code&gt; software, so for next Autumn/Winter I may write a script to run daily and keep track of any changes to that value.&lt;/p&gt;
+&lt;h3 id="using-the-pwrstat-software"&gt;Using the pwrstat software&lt;/h3&gt;
+&lt;p&gt;After installing the &lt;code&gt;powerpanel&lt;/code&gt; software, information about the UPS can be seen using the &lt;code&gt;pwrstat&lt;/code&gt; command.&lt;/p&gt;
+&lt;p&gt;The installer can also add a systemd service called &lt;code&gt;pwrstatd&lt;/code&gt;. Logs for the service can been seen from journald with the command &lt;code&gt;sudo journalctl -u pwrstatd&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;To see the current running status of the UPS:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;$ sudo pwrstat -status
+
+The UPS information shows as following:
+
+	Properties:
+		Model Name................... UT1050EG
+		Firmware Number.............. BF01701DAG1.x
+		Rating Voltage............... 230 V
+		Rating Power................. 630 Watt
+
+	Current UPS status:
+		State........................ Normal
+		Power Supply by.............. Utility Power
+		Utility Voltage.............. 238 V
+		Output Voltage............... 238 V
+		Battery Capacity............. 100 %
+		Remaining Runtime............ 219 min.
+		Load......................... 50 Watt(8 %)
+		Line Interaction............. None
+		Test Result.................. Unknown
+		Last Power Event............. Blackout at 2026/02/11 17:25:21
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;To see the current config of the UPS:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;$ sudo pwrstat -config
+
+Daemon Configuration:
+
+Alarm .............................................. Off
+Hibernate .......................................... Off
+Cloud .............................................. Off
+
+Action for Power Failure:
+
+	Delay time since Power failure ............. 60 sec.
+	Run script command ......................... On
+	Path of script command ..................... /etc/pwrstatd-powerfail.sh
+	Duration of command running ................ 0 sec.
+	Enable shutdown system ..................... Off
+
+Action for Battery Low:
+
+	Remaining runtime threshold ................ 300 sec.
+	Battery capacity threshold ................. 35 %.
+	Run script command ......................... On
+	Path of command ............................ /etc/pwrstatd-lowbatt.sh
+	Duration of command running ................ 0 sec.
+	Enable shutdown system ..................... On
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;To configure the UPS, either the config file can be edited directly at &lt;code&gt;/etc/pwrstatd.conf&lt;/code&gt;, or individual settings can be modified with the &lt;code&gt;pwrstat&lt;/code&gt; command.&lt;/p&gt;
+&lt;p&gt;I disabled the alarm, and set the UPS to keep my server running when the power initially cuts out. The default settings mean that the power failure event only fires when the power has been off for at least 60 seconds, and the server will be kept running until either the battery drops to 35% capacity, or there are only 5 minutes left of runtime.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-sh"&gt;# disable the audible alarm
+$ sudo pwrstat -alarm off
+
+# keep the server on when the power cuts out
+$ sudo pwrstat -pwrfail -shutdown off
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id="what-i-could-have-done-differently"&gt;What I could have done differently&lt;/h3&gt;
+&lt;p&gt;My desktop PC lives next to my server under my desk, but doesn't benefit from the same protection as my server. This was in part because it has an 850W power supply, and buying a UPS that can manage a total of 1350W would have cost my significantly more than the ~£95 I spent.&lt;/p&gt;
+&lt;p&gt;I also don't currently have a solution for keeping my internet connection online when my power cuts. While I could buy another UPS for my router and fibre modem where they come into the house, I assume that the Openreach cabinet over the road from me doesn't have a large UPS so there may not be much I can do about it. Generally my mobile signal drops at the same time too, as the nearest telephone mast is obviously on the same part of the grid as I am.&lt;/p&gt;
+&lt;p&gt;Sending an email to myself when my power cuts out would be nice, but jsut knowing that the hard disks aren't suddenly cutting out mid-write is enough to help me sleep better at night.&lt;/p&gt;
+</content:encoded>
+			<comments xmlns="http://purl.org/rss/1.0/modules/slash/">0</comments>
+		</item>
 		<item>
 			<title>Airplay streaming for under £40*</title>
 			<link>https://robanderson.dev/blog/airplay.html</link>
@@ -549,78 +632,6 @@ $ sudo crontab -e
 &lt;p&gt;I've gone all-in on TP-Link on this, primarily because they seem to be the most affordable recognisable brand in the space. I did have a look at an Intel 2.5Gb network card, but for £68 from Scan it wouldn't have been much more for a 10Gb network card for £77 and at that point I think I'd be being a bit silly unless I was planning on kitting out my server with a load of SSDs for storage and backups. I think the &amp;gt;£200 for a 10Gb switch would be a bit of a waste too.&lt;/p&gt;
 &lt;p&gt;I might write a review for the network cards and mesh routers once I've got a better idea how reliable they are, but for now I'm a bit excited and just enjoying the huge step from basic fibre internet to full fibre to the premises.&lt;/p&gt;
 &lt;p&gt;That is all, thanks for reading!&lt;/p&gt;
-</content:encoded>
-			<comments xmlns="http://purl.org/rss/1.0/modules/slash/">0</comments>
-		</item>
-		<item>
-			<title>Gracefully shutting down an ASP.NET Core websockets API</title>
-			<link>https://robanderson.dev/blog/graceful-shutdown-websockets.html</link>
-			<description>Gracefully shutting down an ASP.NET Core websockets API when systemd hangs</description>
-			<guid>https://robanderson.dev/blog/graceful-shutdown-websockets</guid>
-			<pubDate>Sat, 03 May 2025 00:00:00 GMT</pubDate>
-			<content:encoded>&lt;h2 id="background"&gt;Background&lt;/h2&gt;
-&lt;p&gt;I've recently been developing a maze puzzle for an initiative at work; the puzzle has a web frontend, a couple of REST endpoints, and a websocket endpoint to interact with the maze.&lt;/p&gt;
-&lt;p&gt;It's been running just fine on my home server as a systemd service, but I have noticed that whenever I update the build and restart the service it's been hanging for around 90 seconds before systemd gets tired of waiting and sends a &lt;code&gt;SIGKILL&lt;/code&gt;.&lt;/p&gt;
-&lt;p&gt;I could replicate the issue locally in Rider (though shutdown was taking significantly less time), but not when running with the debugger attached. The application shut down immediately when there weren't any active websocket connections, but seemed to get stuck after logging &lt;code&gt;Application is shutting down...&lt;/code&gt; to the console when there were.&lt;/p&gt;
-&lt;p&gt;The websocket connections were being stored in a static instance of a &lt;code&gt;ConcurrentDictionary&lt;/code&gt;, mapping the id of a maze to a collection of websocket connections. This allowed a user to connect to their maze from their browser, and also connect from their chosen programming language to solve the maze programmatically.&lt;/p&gt;
-&lt;p&gt;This &lt;code&gt;ConcurentDictionary&lt;/code&gt; is referred to as &amp;quot;&lt;code&gt;Topics&lt;/code&gt;&amp;quot; as I've reused a load of code I'd written for a Pub/Sub service in the past. Each &lt;code&gt;Topic&lt;/code&gt; has a &lt;code&gt;Clients&lt;/code&gt; property with the type &lt;code&gt;ConcurrentDictionary&amp;lt;string, WebSocket&amp;gt;&lt;/code&gt; that maps UUIDs to each websocket connection.&lt;/p&gt;
-&lt;h2 id="fixing-my-issue"&gt;Fixing my issue&lt;/h2&gt;
-&lt;p&gt;The websocket connection handler has a &lt;code&gt;CancellationToken&lt;/code&gt; being passed in, but that appears to only fire when the client disconnects.&lt;/p&gt;
-&lt;p&gt;After googling around for a solution, I tried adding a new handler to &lt;code&gt;AppDomain.CurrentDomain.ProcessExit&lt;/code&gt;, but wasn't able to get the event to fire.&lt;/p&gt;
-&lt;p&gt;I was also told I could register an &lt;code&gt;IHostedService&lt;/code&gt; and cleanup using the &lt;code&gt;StopAsync&lt;/code&gt; method, but also found I wasn't able to get it to fire at the right time.&lt;/p&gt;
-&lt;p&gt;I get the feeling that the active websocket connections might have been preventing these handlers to fire.&lt;/p&gt;
-&lt;p&gt;In the end, I discovered that &lt;code&gt;IHostApplicationLifetime&lt;/code&gt; has a &lt;code&gt;CancellationToken&lt;/code&gt; called &lt;code&gt;ApplicationStopping&lt;/code&gt;, that I could wait on for the &lt;code&gt;SIGINT&lt;/code&gt; or &lt;code&gt;SIGTERM&lt;/code&gt; that systemd sends to restart the service.&lt;/p&gt;
-&lt;p&gt;The end of the main &lt;code&gt;Program.cs&lt;/code&gt; now looks like&lt;/p&gt;
-&lt;pre&gt;&lt;code class="language-csharp"&gt;...
-
-app.UseWebsockets();
-
-var shutdownTask = Task.Run(async () =&amp;gt;
-{
-    app.Lifetime.ApplicationStopping.WaitHandler.WaitOne();
-    await WebsocketController.Topics.Shutdown();
-});
-
-app.Run();
-
-await shutdownTask;
-&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;The &lt;code&gt;shutdownTask&lt;/code&gt; runs before the blocking call to &lt;code&gt;app.Run()&lt;/code&gt;, with &lt;code&gt;WaitHandle.WaitOne()&lt;/code&gt; blocking the task until &lt;code&gt;SIGINT&lt;/code&gt; or &lt;code&gt;SIGTERM&lt;/code&gt; has been received. At this point each of the client connections are sent a shutdown error message and are disconnected.&lt;/p&gt;
-&lt;p&gt;The disconnect code is roughly&lt;/p&gt;
-&lt;pre&gt;&lt;code class="language-csharp"&gt;public static async Task Shutdown(this ConcurrentDictionary&amp;lt;string, Topic&amp;gt; topics)
-{
-    var clients = topics.Values.SelectMany(topic =&amp;gt; topic.Clients).ToList();
-    
-    foreach (var (id, ws) in clients)
-    {
-        try
-        {
-            await ws.SendMessage(new ErrorModel(&amp;quot;Server shutting down&amp;quot;));
-            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, &amp;quot;Connection closed&amp;quot;, CancellationToken.None);
-            Console.WriteLine($&amp;quot;Disconnected {id}&amp;quot;);
-        }
-        catch
-        {
-            // client may already have disconnected since calling Shutdown
-            // do nothing
-        }
-    }
-}
-&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;code&gt;Shutdown&lt;/code&gt; is a static extension method called on the &lt;code&gt;ConcurrentDictionary&lt;/code&gt; of topics.&lt;/p&gt;
-&lt;p&gt;I collect the client connections into a list at the start of the function to avoid iterating through the collection as it's being modified, as the disconnecting clients get removed from the &lt;code&gt;ConcurrentDictionary&lt;/code&gt; by the websocket handler as they disconnect. I also wrap each disconnect in a try/catch block to ensure that issues disconnecting one client won't affect disconnecting other clients.&lt;/p&gt;
-&lt;p&gt;&lt;code&gt;WebSocket.SendMessage&amp;lt;T&amp;gt;&lt;/code&gt; is another extension method that serialises a model, converts the json string to bytes, and sends it to over the websocket connection.&lt;/p&gt;
-&lt;pre&gt;&lt;code class="language-csharp"&gt;public static async Task SendMessage&amp;lt;T&amp;gt;(this WebSocket websocket, T model, CancellationToken token = default)
-{
-    var json = JsonSerializer.Serialize(model);
-    var bytes = Encoding.UTF8.GetBytes(json);
-    await websocket.SendAsync(bytes, WebSocketMessageType.Text, endOfMessage: true, token);
-}
-&lt;/code&gt;&lt;/pre&gt;
-&lt;h2 id="conclusion"&gt;Conclusion&lt;/h2&gt;
-&lt;p&gt;This solution seems to work pretty well for my use case, and means I can update and restart my service without it hanging for over a minute.&lt;/p&gt;
-&lt;p&gt;I could set off all the disconnects at once and collect a list of tasks to await with &lt;code&gt;Task.WhenAll&lt;/code&gt;, but given this project was for a small audience, it's unlikely to need to disconnect a large number of clients and taking a few seconds to shut down is entirely acceptable.&lt;/p&gt;
-&lt;p&gt;I'm sure there are more correct ways to do handle the shutdown event too, but given this isn't a production-grade application and wasn't being written for a client I'm happy enough with how it works.&lt;/p&gt;
 </content:encoded>
 			<comments xmlns="http://purl.org/rss/1.0/modules/slash/">0</comments>
 		</item>
