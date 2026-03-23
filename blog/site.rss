@@ -6,8 +6,111 @@
 		<description />
 		<copyright>2026</copyright>
 		<managingEditor>Rob Anderson</managingEditor>
-		<pubDate>Sat, 14 Mar 2026 16:36:20 GMT</pubDate>
-		<lastBuildDate>Sat, 14 Mar 2026 16:36:20 GMT</lastBuildDate>
+		<pubDate>Mon, 23 Mar 2026 23:19:37 GMT</pubDate>
+		<lastBuildDate>Mon, 23 Mar 2026 23:19:37 GMT</lastBuildDate>
+		<item>
+			<title>Trying Claude with a hobby project</title>
+			<link>https://robanderson.dev/blog/trying-claude.html</link>
+			<description>Using Claude desktop to build a plant moisture logging service for a Raspberry Pi Pico</description>
+			<guid>https://robanderson.dev/blog/trying-claude</guid>
+			<pubDate>Mon, 23 Mar 2026 00:00:00 GMT</pubDate>
+			<content:encoded>&lt;h2 id="preface"&gt;Preface&lt;/h2&gt;
+&lt;p&gt;I used an LLM for the majority of the code in this project, but everything written here was written by me with my keyboard. I'd like my writing to be better, but that's why I do more of it.&lt;/p&gt;
+&lt;p&gt;I've been an AI skeptic for as long as it's regularly been in the news. I'd tried out a few small LLMs locally, but with my RX 9060XT I'm limited to models that fit into 16GB of VRAM.&lt;/p&gt;
+&lt;p&gt;While seeing my GPU churn out text and even simple code pretty quickly was cool, it never felt like more than a shortcut to get a Wikipedia-esque response to a question, or to spit out some simple code.&lt;/p&gt;
+&lt;p&gt;I've tried and failed to get LLMs to one-shot some more complex problems, so had pretty much written off the idea that it'd ever do more than answer simple questions about code without the sass of a seasoned StackOverflow commenter.&lt;/p&gt;
+&lt;p&gt;I've worked on teams with developers who used ChatGPT to produce code they didn't understand, and had been frustrated when they were unable to answer my questions in the code review.&lt;/p&gt;
+&lt;p&gt;Despite all this I was aware that it feels like the software industry is changing; like we're heading towards quick Nordic flat-pack furniture rather than the bespoke hand made hardwood furniture that at one time was standard.&lt;/p&gt;
+&lt;h2 id="enter-claude"&gt;Enter Claude&lt;/h2&gt;
+&lt;p&gt;I didn't do much research before settling on Claude. I'd tried the free versions of a few LLM providers, and felt Claude's dev focus suited my use case reasonably well. My initial usage involved it helping me get Neovim setup on my laptop so I could get proper linting and syntax highlighting in the various languages I use.&lt;/p&gt;
+&lt;p&gt;My wife was away with her family at the time, and I had been tasked with keeping a couple of houseplants alive. This involved the complex task of watering them if the top few cm of soil was dry, and sending some pictures of her orchid as it had picked that exact week to start flowering.&lt;/p&gt;
+&lt;p&gt;I decided that the next obvious step was to run a service on my home server to keep track of the moisture level of the soil in the pots, using a couple of Raspberry Pi Picos I had lying around. I bought a pack of cheap moisture sensors from Amazon and started thinking about how I'd build the service that'd run on my Server.&lt;/p&gt;
+&lt;p&gt;It seemed like a good fit for an LLM, as it'd be a small service with limited functionality and it needed building from the ground up.&lt;/p&gt;
+&lt;p&gt;I installed the Claude Desktop application, and asked it to produce a plan for my new service.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-md"&gt;# me
+
+You are a senior project owner.
+I'm creating a project to monitor and display the moisture content of all of the plants in my house. The MVP test subject is my wife's orchid that she's called Jeffrey.
+I've created `Bloom.slnx` which is a .Net 10 solution file. Using C# I'm going to created a monolithic project that will connect to an SQLite database. Any frontend work will be done with Razor pages, using vanilla HTML and CSS. Any interactivity will be done with Typescript, which will be compiled using `Microsoft.TypeScript.MSBuild`.
+The data from the IoT sensor attached to the plant pot will come via MQTT, so I want to use MQTTnet to receive regular measurements on the endpoint `/mqtt`. I want to have a REST API available at `/api`, and a Razor pages site with the root `/web`.
+Create a project plan with logical bite-sized steps to finish this project. Ask questions about anything needing clarification, including the tech stack, business logic, and anything else you can think to ask.
+Store the project plan in `plan.md`
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;I decided to use Opus 4.6 for the initial planning, though I'm not sure what difference that would have made. It's response was reasonably sensible either way, though I had to ask it to use MQTT 5 rather than MQTT over websockets, which was its initial choice.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-md"&gt;# claude
+
+Plan written to `plan.md`. Here's a summary of the 6 phases:
+
+1. **Project Scaffolding** - Create the ASP.NET project, add NuGet packages, configure the three route prefixes (`/mqtt`, `/api`, `/web`), and set up TypeScript compilation
+2. **Database &amp;amp; Data Model** - EF Core with SQLite, `Plant` and `SensorReading` entities, migrations, seed Jeffrey
+3. **MQTT Broker &amp;amp; Ingestion** - Built-in MQTTnet broker on `/mqtt` via WebSocket, subscribe to `plants/+`, parse JSON payloads, persist readings
+4. **REST API** - Read-only endpoints at `/api` for listing plants, fetching historical readings (default 7 days), and plant details
+5. **Frontend Dashboard** - Razor Pages at `/web` showing Jeffrey's current state, a Chart.js time-series chart, and a dry/moist/wet visual indicator
+6. **Polish &amp;amp; Testing** - Data retention cleanup, error handling, integration tests, and a mock MQTT publisher for local dev
+
+Each phase builds on the previous one, so they can be tackled sequentially. The steps within each phase are small enough to implement one at a time. Want to adjust anything before we start building?
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code class="language-md"&gt;# me
+
+Please change the `plan.md` to use MQTT 5 for the MQTT broker instead of MQTT over websockets
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code class="language-md"&gt;# claude
+
+Updated. The plan now uses MQTT 5 over TCP (port 1883) instead of MQTT over WebSocket. Key changes:
+
+- Broker listens on TCP port 1883 (native MQTT 5) instead of a `/mqtt` WebSocket endpoint
+- Dropped `MQTTnet.AspNetCore` from dependencies (not needed for TCP-only broker)
+- Removed `/mqtt` from the routing setup since it's no longer an HTTP path
+&lt;/code&gt;&lt;/pre&gt;
+&lt;blockquote&gt;
+&lt;p&gt;I'm not sure why I said "please", but I guess it's always better to be polite?&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;After the initial planning I switched back to Sonnet 4.6 (as recommended by blog posts I'd read), and each of the tasks was compeleted with a prompt roughly the same as:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-md"&gt;# me
+
+You are an experienced senior C# software developer. You prioritise simple, readable code and prefer to use the .Net standard library over external dependencies where possible.
+Please read `plan.md` for information on what you're building, and `development.md` as a history of the development work and decisions that have been done so far.
+Implement Phase 5 of the plan, asking questions where necessary if one of the requirements isn't clear enough. Update `plan.md` as each subtask is completed, and write a short summary of work done to `development.md`.
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;I don't know how important logging decisions to &lt;code&gt;development.md&lt;/code&gt; was, if nothing else it was useful for me to keep track of the changes and decisions.&lt;/p&gt;
+&lt;p&gt;Claude had an issue with Microsoft's MQTTNet library initially, trying to create an F# script to spit out reflected types and method signatures from the dll. It was saving the &lt;code&gt;.fsx&lt;/code&gt; scripts to my &lt;code&gt;/tmp&lt;/code&gt; directory, but then failing to run them; I'm still not sure why. Eventually it gave up and just downloaded the source from the MQTTNet Github repo, but hit a number of rate limiting errors along the way.&lt;/p&gt;
+&lt;p&gt;It seems resourceful to try reflection and the Github repo, but I'm surprised the library isn't part of some sort of training data for the model already.&lt;/p&gt;
+&lt;p&gt;I also had to ask Claude to pull out the default dependencies Bootstrap and JQuery as I wouldn't class them as "vanilla" JS and CSS.&lt;/p&gt;
+&lt;h3 id="completed-backend-service"&gt;Completed backend service&lt;/h3&gt;
+&lt;p&gt;What was produced was simple and functional. I don't know if I could have finished the same backend service in just one evening myself, so I was definitely impressed with that.&lt;/p&gt;
+&lt;p&gt;I'd tried to stress that it was a service that only my wife and I would be using to stop Claude from enterprise-ing it up, and that seemed to work pretty well. A .Net monolith with SQLite might not scale to hundreds of thousands of concurrent users, but it doesn't need to.&lt;/p&gt;
+&lt;h2 id="but-can-it-iot"&gt;But can it IoT?&lt;/h2&gt;
+&lt;p&gt;Next I had Claude turn to the code that'd run each of the Pico W's that would be attached to the moisture sensors. I've played around with running Micropython on Picos before, so decided that would be the easiest way to get something working.&lt;/p&gt;
+&lt;p&gt;Claude handled my initial prompt well, though as the moisture sensors hadn't arrived yet I had asked it to return a randomly generated moisture percentage for the time being.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="language-md"&gt;# me
+
+You are an experience micropython programmer writing a hobbyist IoT program for a Raspberrry Pi Pico W.
+Implement `main.py` to connect to my Wifi network, using placeholder variables `wifi_ssid` and `wifi_password`. Set the network hostname to `jeffrey`
+Connect to an MQTT server at `ip_address` on port `1883` using the MQTT implementation in `mqtt/simple.py`.
+Read the temperature of the Pi Pico W on ADC 4, with the assumption that at 27 celsius the voltage will be close to 0.706V, and every degree of temperature change will change the voltage by around 1.721mV. A higher voltage will be a higher temperature.
+Generate a *random* moisture level between 0 and 100, following some slow sine wave with a frequency around 0.01Hz.
+Take 5 readings of each value a second apart to find the median of each.
+Format the median `temperature` and `moisture` as json and send publish it to `plants/&amp;lt;hostname&amp;gt;`
+Send a new measurement every 600 seonds.
+Provide a written log of everything done in `dev.md`, and add instructions on how to deploy the code to my Pico W in `README.md`.
+Ask questions to ensure that your understanding is correct.
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Claude asked a load of questions, which essentially boiled down to "Keep it simple".&lt;/p&gt;
+&lt;p&gt;It gave me the instructions required to copy the pythong files across to my Pico using &lt;code&gt;mpremote&lt;/code&gt;, and I was off to the races.&lt;/p&gt;
+&lt;p&gt;Once the moisture sensors arrived I had claude write a new test script that read the voltage from the moisture sensor on ADC0 (GPIO 26) and print them out so I could work out the reading at 0% moisture (sensor held in the air), and 100% moisture (sensor dunked in a glass of water).&lt;/p&gt;
+&lt;p&gt;From there I asked Claude to update the original &lt;code&gt;main.py&lt;/code&gt; program to use these new voltages (2.738V dry and 1.040V wet), which it also did with ease. I was pleased to see that it pulled out the &lt;code&gt;math&lt;/code&gt; import which had previously been required for the sine wave.&lt;/p&gt;
+&lt;h2 id="minor-refactor"&gt;Minor refactor&lt;/h2&gt;
+&lt;p&gt;I discovered pretty quickly that the temperature from the Pico W was actually the temperature of the RP2040 chip, and not of the air temperature so decided to remove it from the Python code and from the backend service until I get round to buying a proper external temperature probe.&lt;/p&gt;
+&lt;p&gt;Removing the temperature from the Pico's Python code was very quick and simple, but removing it from the backend service and from EF Core took significantly longer. This is one of the few situations where I think I could have completed the task faster than Claude, as the query took around 10 minutes in total.&lt;/p&gt;
+&lt;p&gt;More testing is required before I make any sweeping assumptions, but it was odd to see a refactor taking longer than the initial implementation.&lt;/p&gt;
+&lt;h2 id="conclusion"&gt;Conclusion&lt;/h2&gt;
+&lt;p&gt;I was more impressed than I thought I'd be with Claude. It exceeded my expectations building a project from scratch, and I'll continue to trial it at £20 per month. I've not run up against any usage limits yet, but I still feel like I'm dipping my toes into the water at the moment.&lt;/p&gt;
+&lt;p&gt;Jeffrey after being watered once my wife got home:
+&lt;img src="https://robanderson.dev/blog/images/plants.png" alt="Jeffrey showing 75.9% moist (wet)"&gt;
+&lt;img src="https://robanderson.dev/blog/images/plants-graph.png" alt="Jeffrey's chart showing 75.9% moist (wet)"&gt;&lt;/p&gt;
+</content:encoded>
+			<comments xmlns="http://purl.org/rss/1.0/modules/slash/">0</comments>
+		</item>
 		<item>
 			<title>Buying and configuring a CyberPower UPS for my home server</title>
 			<link>https://robanderson.dev/blog/ups.html</link>
@@ -20,6 +123,7 @@
 &lt;p&gt;I'd half-heartedly looked at buying an uninterruptible power supply (UPS) in the past, but struggled to find anything that caught my eye. I wanted to be able to keep my server running through short power cuts; only powering my server down safely if the power had been off for over 10 minutes or so.&lt;/p&gt;
 &lt;p&gt;A lot of our power cuts occur during the night and my dog sleeps within earshot of my server, so I needed to be able to configure the UPS to not make any loud beeps when the power goes off. This seemed to be an issue with the APC UPS I was initially considering.&lt;/p&gt;
 &lt;p&gt;After doing some (minimal) research I decided on the &lt;a href="https://www.cyberpower.com/uk/en/product/sku/ut1050eig"&gt;CyberPower UT1050EIG&lt;/a&gt;. With it's catchy name and good reviews, it offers enough power output for my server, with a big enough capacity to keep it on for more than long enough to survive our short power cuts.&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://robanderson.dev/blog/images/ups.png" alt="CyberPower UT1050EIG UPS"&gt;&lt;/p&gt;
 &lt;p&gt;It has a USB type B port to connect to my server, and pretty well documented software to install to help configure the UPS. It took me a little while to find the &lt;a href="https://www.cyberpower.com/uk/en/product/sku/powerpanel_for_linux#downloads"&gt;software and documentation&lt;/a&gt; from the product page, but once I did I was able to see it was available as a &lt;code&gt;.deb&lt;/code&gt; installer for x64. The &lt;a href="https://wiki.archlinux.org/title/CyberPower_UPS"&gt;documentation on the Arch wiki&lt;/a&gt; was also really helpful, though in fairness it's saved me a few times over the years for documentation.&lt;/p&gt;
 &lt;p&gt;I bought the UPS from &lt;a href="https://www.scan.co.uk/products/1050va-cyberpower-ut1050eig-uninterruptible-power-supply-630w-6x-c13-outlets-lead-acid-battery-line"&gt;Scan for £95.98&lt;/a&gt; including postage, and while delivery took a little longer than expected, I was very pleased with how well it was packaged. I bought a C14 to C13 power cable, but discovered on arrival that the UPS came with one in the box. (I couldn't see any mention of it on the product page).&lt;/p&gt;
 &lt;p&gt;I was happy to see that the software allowed configuring the audible alarm, and time/capacity thresholds for powering down a connected device. According to the product page it can put out 630W (my server has a 500W power supply, but draws much less than that even under load) and can sustain 90W for over 40 minutes. I think my server idles at around half of that, so I should theoretically get around an hour and 20 minutes of life if I were to prioritise keeping my server running as long as possible.&lt;/p&gt;
@@ -760,57 +864,6 @@ sudo systemctl start &amp;lt;project&amp;gt;.service
 &lt;p&gt;I can check the live logs of my service using &lt;code&gt;sudo journalctl -u &amp;lt;project&amp;gt;.service -f&lt;/code&gt;, or check today's logs with &lt;code&gt;sudo journalctl -u &amp;lt;project&amp;gt;.service --since today&lt;/code&gt;.&lt;/p&gt;
 &lt;h2 id="final-words"&gt;Final words&lt;/h2&gt;
 &lt;p&gt;This is as much documentation to future-me as it is a guide to anyone interested. It's been written a little hastily, but at least it's all written by me rather than an LLM.&lt;/p&gt;
-</content:encoded>
-			<comments xmlns="http://purl.org/rss/1.0/modules/slash/">0</comments>
-		</item>
-		<item>
-			<title>6 months with the Dell PowerEdge T160</title>
-			<link>https://robanderson.dev/blog/dell-t160.html</link>
-			<description>6 month review of the Dell PowerEdge T160</description>
-			<guid>https://robanderson.dev/blog/dell-t160</guid>
-			<pubDate>Tue, 11 Feb 2025 00:00:00 GMT</pubDate>
-			<content:encoded>&lt;p&gt;&lt;a href="https://www.dell.com/en-uk/shop/ipovw/poweredge-t160"&gt;&lt;img src="https://robanderson.dev/blog/images/dell-t160.png" alt="Dell PowerEdge T160"&gt;&lt;/a&gt;&lt;/p&gt;
-&lt;h2 id="tldr"&gt;TL;DR&lt;/h2&gt;
-&lt;p&gt;My &lt;a href="https://www.dell.com/en-uk/shop/ipovw/poweredge-t160"&gt;Dell T160&lt;/a&gt; is a very capable small server, and will be more than powerful enough for me for several years. It's reasonably quiet, doesn't use too much power, and it's tool-less design is well-thought-out.&lt;/p&gt;
-&lt;p&gt;The server arrived significantly faster than expected, and the packaging meant it arrived in perfect condition.&lt;/p&gt;
-&lt;p&gt;Installing Ubuntu Server was easy, though I did have to go hunting through my loft for a VGA cable to connect to a monitor.&lt;/p&gt;
-&lt;p&gt;My main frustrations have been with the lack of hard drive caddies that came with my server, despite upgrading the chassis to support three HDDs and two SSDs. I've been unable to buy any from Dell or the reseller I was eventually given the email address for, so had to buy and modify some cheap 3.5-inch caddies from Ebay.&lt;/p&gt;
-&lt;h2 id="why-did-i-buy-a-home-server"&gt;Why did I buy a home server?&lt;/h2&gt;
-&lt;p&gt;I bought my Gen8 HP MicroServer in 2015 and for 9 years it served me well. It wasn't particularly fast, running an Intel Celeron G1610T with 4GB of DDR3 RAM, but was a very capable NAS able to saturate gigabit ethernet when transferring files across my local network. It also cost me £115 after cashback when HP were busy selling off old stock while they rebranded to HPE. (thanks!)&lt;/p&gt;
-&lt;p&gt;&lt;a href="https://support.hpe.com/hpesc/public/docDisplay?docId=c03793258&amp;amp;page=GUID-773FBBD8-8BD2-4C04-BA2B-055BA390D650.html"&gt;&lt;img src="https://robanderson.dev/blog/images/hp-ms-gen8.png" alt="HP MicroServer Gen8"&gt;&lt;/a&gt;&lt;/p&gt;
-&lt;p&gt;I had a boot SSD resting in one of the drive bays, and two 2TB drives in RAID 1 in two of the others; more than enough to back up my desktop and laptop as I don't any ripped films or music. Spotify and Netflix have made my storage requirements much less than they could have been.&lt;/p&gt;
-&lt;p&gt;I could have upgraded the RAM pretty cheaply, but the CPU was a little tricker. Compatible low-power Xeon processors were difficult to find online in the UK, and compatible Core i3's didn't offer much of a performance boost.&lt;/p&gt;
-&lt;p&gt;For more demanding compute-based workloads, I had repurposed an Intel NUC with a Core i5-8259U and 16GB of DDR4 RAM. I was primarily running a service to track rainfall and river levels across Northumberland, and was finding that trying to train predictive models was taking an order of magnitude longer on the MicroServer than on my old laptop.&lt;/p&gt;
-&lt;p&gt;The NUC handled this very well, but the urge to spend money I didn't need to spend was creeping in after a long period of not splashing out. I wanted to be able to run a few websites, serve as a central point for my backups, and do quick predictions of river levels a few times per day.&lt;/p&gt;
-&lt;h3 id="why-didnt-i-build-a-new-server"&gt;Why didn't I build a new server?&lt;/h3&gt;
-&lt;p&gt;I'd been considering building a home server for a few years, but always found that server-grade motherboards were £400+, and anything as compact as my MicroServer was going to be tricky to put together cheaper than just buying a new server.&lt;/p&gt;
-&lt;p&gt;The announcement of the AMD EPYC 4004 series processors piqued my interest, but again &lt;a href="https://www.scan.co.uk/products/asrock-b650d4u-amd-b650-s-am5-ddr5-sata3-pcie-50-2x-m2-gbe-usb-32-gen1-micro-atx"&gt;the motherboards were limited and expensive&lt;/a&gt;, and it would appear that 6 months later there are still only &lt;a href="https://www.scan.co.uk/shop/computer-hardware/cpu-amd-server/amd-epyc-4004-series-zen-4-1p-socket-am5-server-processor#visible=0"&gt;a couple of models available&lt;/a&gt; at a higher retail price than AMD initially suggested.&lt;/p&gt;
-&lt;p&gt;This is the motherboard I was considering&lt;/p&gt;
-&lt;p&gt;&lt;a href="https://www.scan.co.uk/products/asrock-b650d4u-amd-b650-s-am5-ddr5-sata3-pcie-50-2x-m2-gbe-usb-32-gen1-micro-atx"&gt;&lt;img src="https://robanderson.dev/blog/images/epyc-4004-motherboard.png" alt="AsRock B650D4U motherboard on Scan"&gt;&lt;/a&gt;&lt;/p&gt;
-&lt;p&gt;Here are the (still not available CPUs)&lt;/p&gt;
-&lt;p&gt;&lt;a href="https://www.scan.co.uk/shop/computer-hardware/cpu-amd-server/amd-epyc-4004-series-zen-4-1p-socket-am5-server-processor"&gt;&lt;img src="https://robanderson.dev/blog/images/scan-epyc-4004-cpus.png" alt="EPYC 4004 processors on Scan"&gt;&lt;/a&gt;&lt;/p&gt;
-&lt;p&gt;And the initially advertised CPU prices&lt;/p&gt;
-&lt;p&gt;&lt;a href="https://www.phoronix.com/review/amd-epyc-4124p"&gt;&lt;img src="https://robanderson.dev/blog/images/epyc-4004-pricing.png" alt="EPYC 4004 prices from Phoronix"&gt;&lt;/a&gt;&lt;/p&gt;
-&lt;h3 id="which-server-to-buy"&gt;Which server to buy?&lt;/h3&gt;
-&lt;p&gt;I had a few thoughts about which server to buy; there were some refurbished servers available online but most weren't discounted a huge amount, and I was struggling to justify spending over £500 for a large, loud server with DDR3 or DDR4 memory.&lt;/p&gt;
-&lt;p&gt;A new Gen11 or Gen10 plus v2 (?) HPE MicroServer would have been a good shout, but at the time I committed to the T160 they still weren't generally available in the UK, and were a little more expensive for comparable specs. The Gen10 plus v2 would have been a better choice, but it's difficult not to buy the latest and greatest when it's only a smidge more expensive.&lt;/p&gt;
-&lt;p&gt;&lt;a href="https://buy.hpe.com/uk/en/compute/proliant-microserver/proliant-microserver/proliant-microserver/hpe-proliant-microserver-gen11/p/1014826370"&gt;&lt;img src="https://robanderson.dev/blog/images/hpe-ms-gen11.png" alt="HPE MicroServer Gen11"&gt;&lt;/a&gt;&lt;/p&gt;
-&lt;p&gt;The Dell eventually won me over, and at this point I just assume it was the price for the specs I was buying.&lt;/p&gt;
-&lt;h2 id="the-spec"&gt;The spec&lt;/h2&gt;
-&lt;p&gt;I configured one of the "Value" offerings to have an Intel Xeon E-2434, and 32GB of ECC DDR5 memory. I chose the cheapest HDD I could find - a 2TB Seagate drive and upgraded the chassis to a 500W power supply and to support five internal SATA drives; two 2.5-inch drives and three 3.5-inch drives.&lt;/p&gt;
-&lt;p&gt;The total price ended up being £1320 including VAT, which I still think was pretty good value.&lt;/p&gt;
-&lt;h2 id="teething-problems"&gt;Teething problems&lt;/h2&gt;
-&lt;p&gt;As mentioned in the TL;DR, the primary issue I've had with the dell has been with the lack of supplied disk caddies, my inability to buy them from Dell or resellers, and the lack of transparency when buying the server that a chassis supporting five drives only comes with one caddy for the supplied overpriced drive.&lt;/p&gt;
-&lt;p&gt;I ended up having to buy caddies from Ebay, and filing some of the plastic at the bottom of them in order to make them fit into the T160.&lt;/p&gt;
-&lt;p&gt;Two caddies for £10 was a pretty good deal, it's just a shame I mangled them and my 2.5-inch SSD is still just floating in the slot where I'd put a caddy if only I had one.&lt;/p&gt;
-&lt;p&gt;&lt;a href="https://www.ebay.co.uk/itm/185586553971"&gt;&lt;img src="https://robanderson.dev/blog/images/caddies.png" alt="Dell OptiPlex caddies"&gt;&lt;/a&gt;&lt;/p&gt;
-&lt;p&gt;I was also expecting some additional features in the free version of iDRAC, like the ability to track power usage without relying on a smart plug.&lt;/p&gt;
-&lt;h2 id="i-should-have-just-moved-to-the-cloud"&gt;I should have just moved to the cloud&lt;/h2&gt;
-&lt;p&gt;Due to semi-regular short power-cuts where I live, my broadband connection isn't really reliable to host any website that I want more than two nines of availability.&lt;/p&gt;
-&lt;p&gt;I've recently starting paying for a little VPS from Hetzner, which is costing me €3.95 per month (including VAT). It only has 2 cores, 4GB of RAM, and a 40GB SSD on a shared host, but it's a lot more reliable than anything hosted at home, and connected to a much faster network.&lt;/p&gt;
-&lt;p&gt;I could have got an 8 core VPS with 16GB of RAM and a 160GB SSD for €14.39, and run it for 110 months (at the current exchange rate) and I'd still end up better off because I wouldn't be paying for the electricity.&lt;/p&gt;
-&lt;p&gt;I already encrypt and back up my files to another cloud backup service, so going fully cloud would have generally been a good idea, aside from losing my NAS. Storing large files on my home server does allow me to use reasonably small SSDs in my laptop and desktop PC, and just rely on the 1Gb/s read speeds I get from my network shares.&lt;/p&gt;
-&lt;p&gt;There's no conclusion here; I like having a home server, though it was probably a little bit of a waste of money.&lt;/p&gt;
 </content:encoded>
 			<comments xmlns="http://purl.org/rss/1.0/modules/slash/">0</comments>
 		</item>
