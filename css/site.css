@@ -72,6 +72,10 @@ a:focus, a:hover {
     border-bottom: #d197d9 2px solid;
 }
 
+.files {
+    line-height: 1.6;
+}
+
 .file {
     margin-right: 20px;
     padding-right: 10px;
